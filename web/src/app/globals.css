@@ -1,0 +1,125 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .job-slot-exit {
+    transition:
+      transform 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+      opacity 0.42s ease;
+    transform: translateX(115%);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .job-slot-enter {
+    animation: jobBoardEnter 0.48s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes jobBoardEnter {
+    from {
+      transform: translateX(-90%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  .task-log-item-enter {
+    animation: taskLogEnter 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes taskLogEnter {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .team-panel-backdrop {
+    animation: teamPanelBackdrop 0.2s ease both;
+  }
+
+  .team-panel-sheet {
+    animation: teamPanelSheet 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes teamPanelBackdrop {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes teamPanelSheet {
+    from {
+      transform: translateX(100%);
+      opacity: 0.96;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  .status-chip-glow-pulse {
+    animation: statusChipGlowPulse 1.8s ease-in-out infinite;
+  }
+
+  @keyframes statusChipGlowPulse {
+    0%,
+    100% {
+      opacity: 0.48;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.95;
+      transform: scale(1.01);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .team-panel-backdrop,
+  .team-panel-sheet {
+    animation: none;
+  }
+
+  .status-chip-glow-pulse {
+    animation: none;
+    opacity: 0.75;
+  }
+}
+
+/*
+ * Left rail offset:
+ * The left icon rail is `position: fixed` and can be expanded/collapsed.
+ * Page containers should use this variable for their left padding to
+ * avoid being covered by the rail.
+ */
+:root {
+  --left-rail-offset: 0px;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --left-rail-offset: 96px;
+  }
+}

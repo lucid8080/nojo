@@ -1,0 +1,18 @@
+# Ignore editor/agent scratch files
+.cursor/
+
+# Ignore app build/deps folders (mostly inside web/)
+web/node_modules/
+web/.next/
+web/out/
+web/build/
+
+# Ignore nested git directory (if any)
+web/.git/
+
+# Ignore environment files anywhere under web/
+web/.env*
+
+# Ignore local database artifacts (common with Prisma SQLite)
+web/prisma/*.db
+

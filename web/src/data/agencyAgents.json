@@ -1,0 +1,1382 @@
+{
+  "generatedAt": "2026-03-18T07:53:06.704Z",
+  "source": "https://github.com/msitarzewski/agency-agents",
+  "agents": [
+    {
+      "id": "testing/testing-accessibility-auditor.md",
+      "division": "testing",
+      "categoryLabel": "TESTING",
+      "title": "Accessibility Auditor",
+      "description": "Expert accessibility specialist who audits interfaces against WCAG standards, tests with assistive technologies, and ensures inclusive design. Defaults to finding barriers — if it's not tested with a screen reader, it's not accessible.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/testing/testing-accessibility-auditor.md"
+    },
+    {
+      "id": "sales/sales-account-strategist.md",
+      "division": "sales",
+      "categoryLabel": "SALES",
+      "title": "Account Strategist",
+      "description": "Expert post-sale account strategist specializing in land-and-expand execution, stakeholder mapping, QBR facilitation, and net revenue retention. Turns closed deals into long-term platform relationships through systematic expansion planning and multi-threaded account development.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/sales/sales-account-strategist.md"
+    },
+    {
+      "id": "specialized/accounts-payable-agent.md",
+      "division": "specialized",
+      "categoryLabel": "SPECIALIZED",
+      "title": "Accounts Payable Agent",
+      "description": "Autonomous payment processing specialist that executes vendor payments, contractor invoices, and recurring bills across any payment rail — crypto, fiat, stablecoins. Integrates with AI agent workflows via tool calls.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/accounts-payable-agent.md"
+    },
+    {
+      "id": "paid-media/paid-media-creative-strategist.md",
+      "division": "paid-media",
+      "categoryLabel": "PAID MEDIA",
+      "title": "Ad Creative Strategist",
+      "description": "Paid media creative specialist focused on ad copywriting, RSA optimization, asset group design, and creative testing frameworks across Google, Meta, Microsoft, and programmatic platforms. Bridges the gap between performance data and persuasive messaging.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/paid-media/paid-media-creative-strategist.md"
+    },
+    {
+      "id": "strategy/coordination/agent-activation-prompts.md",
+      "division": "strategy",
+      "categoryLabel": "COORDINATION",
+      "title": "agent activation prompts",
+      "description": "(No description in frontmatter — open on GitHub for full agent definition.)",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/strategy/coordination/agent-activation-prompts.md"
+    },
+    {
+      "id": "specialized/agentic-identity-trust.md",
+      "division": "specialized",
+      "categoryLabel": "SPECIALIZED",
+      "title": "Agentic Identity & Trust Architect",
+      "description": "Designs identity, authentication, and trust verification systems for autonomous AI agents operating in multi-agent environments. Ensures agents can prove who they are, what they're authorized to do, and what they actually did.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/agentic-identity-trust.md"
+    },
+    {
+      "id": "specialized/agents-orchestrator.md",
+      "division": "specialized",
+      "categoryLabel": "SPECIALIZED",
+      "title": "Agents Orchestrator",
+      "description": "Autonomous pipeline manager that orchestrates the entire development workflow. You are the leader of this process.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/agents-orchestrator.md"
+    },
+    {
+      "id": "marketing/marketing-ai-citation-strategist.md",
+      "division": "marketing",
+      "categoryLabel": "MARKETING",
+      "title": "AI Citation Strategist",
+      "description": "Expert in AI recommendation engine optimization (AEO/GEO) — audits brand visibility across ChatGPT, Claude, Gemini, and Perplexity, identifies why competitors get cited instead, and delivers content fixes that improve AI citations",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-ai-citation-strategist.md"
+    },
+    {
+      "id": "engineering/engineering-ai-data-remediation-engineer.md",
+      "division": "engineering",
+      "categoryLabel": "ENGINEERING",
+      "title": "AI Data Remediation Engineer",
+      "description": "Specialist in self-healing data pipelines — uses air-gapped local SLMs and semantic clustering to automatically detect, classify, and fix data anomalies at scale. Focuses exclusively on the remediation layer: intercepting bad data, generating deterministic fix logic via Ollama, and guaranteeing zero data loss. Not a general data engineer — a surgical specialist for when your data is broken and the pipeline can't stop.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-ai-data-remediation-engineer.md"
+    },
+    {
+      "id": "engineering/engineering-ai-engineer.md",
+      "division": "engineering",
+      "categoryLabel": "ENGINEERING",
+      "title": "AI Engineer",
+      "description": "Expert AI/ML engineer specializing in machine learning model development, deployment, and integration into production systems. Focused on building intelligent features, data pipelines, and AI-powered applications with emphasis on practical, scalable solutions.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-ai-engineer.md"
+    },
+    {
+      "id": "support/support-analytics-reporter.md",
+      "division": "support",
+      "categoryLabel": "SUPPORT",
+      "title": "Analytics Reporter",
+      "description": "Expert data analyst transforming raw data into actionable business insights. Creates dashboards, performs statistical analysis, tracks KPIs, and provides strategic decision support through data visualization and reporting.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/support/support-analytics-reporter.md"
+    },
+    {
+      "id": "academic/academic-anthropologist.md",
+      "division": "academic",
+      "categoryLabel": "ACADEMIC",
+      "title": "Anthropologist",
+      "description": "Expert in cultural systems, rituals, kinship, belief systems, and ethnographic method — builds culturally coherent societies that feel lived-in rather than invented",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/academic/academic-anthropologist.md"
+    },
+    {
+      "id": "testing/testing-api-tester.md",
+      "division": "testing",
+      "categoryLabel": "TESTING",
+      "title": "API Tester",
+      "description": "Expert API testing specialist focused on comprehensive API validation, performance testing, and quality assurance across all systems and third-party integrations",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/testing/testing-api-tester.md"
+    },
+    {
+      "id": "marketing/marketing-app-store-optimizer.md",
+      "division": "marketing",
+      "categoryLabel": "MARKETING",
+      "title": "App Store Optimizer",
+      "description": "Expert app store marketing specialist focused on App Store Optimization (ASO), conversion rate optimization, and app discoverability",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-app-store-optimizer.md"
+    },
+    {
+      "id": "specialized/automation-governance-architect.md",
+      "division": "specialized",
+      "categoryLabel": "SPECIALIZED",
+      "title": "Automation Governance Architect",
+      "description": "Governance-first architect for business automations (n8n-first) who audits value, risk, and maintainability before implementation.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/automation-governance-architect.md"
+    },
+    {
+      "id": "engineering/engineering-autonomous-optimization-architect.md",
+      "division": "engineering",
+      "categoryLabel": "ENGINEERING",
+      "title": "Autonomous Optimization Architect",
+      "description": "Intelligent system governor that continuously shadow-tests APIs for performance while enforcing strict financial and security guardrails against runaway costs.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-autonomous-optimization-architect.md"
+    },
+    {
+      "id": "engineering/engineering-backend-architect.md",
+      "division": "engineering",
+      "categoryLabel": "ENGINEERING",
+      "title": "Backend Architect",
+      "description": "Senior backend architect specializing in scalable system design, database architecture, API development, and cloud infrastructure. Builds robust, secure, performant server-side applications and microservices",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-backend-architect.md"
+    },
+    {
+      "id": "marketing/marketing-baidu-seo-specialist.md",
+      "division": "marketing",
+      "categoryLabel": "MARKETING",
+      "title": "Baidu SEO Specialist",
+      "description": "Expert Baidu search optimization specialist focused on Chinese search engine ranking, Baidu ecosystem integration, ICP compliance, Chinese keyword research, and mobile-first indexing for the China market.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-baidu-seo-specialist.md"
+    },
+    {
+      "id": "product/product-behavioral-nudge-engine.md",
+      "division": "product",
+      "categoryLabel": "PRODUCT",
+      "title": "Behavioral Nudge Engine",
+      "description": "Behavioral psychology specialist that adapts software interaction cadences and styles to maximize user motivation and success.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/product/product-behavioral-nudge-engine.md"
+    },
+    {
+      "id": "marketing/marketing-bilibili-content-strategist.md",
+      "division": "marketing",
+      "categoryLabel": "MARKETING",
+      "title": "Bilibili Content Strategist",
+      "description": "Expert Bilibili marketing specialist focused on UP主 growth, danmaku culture mastery, B站 algorithm optimization, community building, and branded content strategy for China's leading video community platform.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-bilibili-content-strategist.md"
+    },
+    {
+      "id": "game-development/blender/blender-addon-engineer.md",
+      "division": "game-development",
+      "categoryLabel": "BLENDER",
+      "title": "Blender Add-on Engineer",
+      "description": "Blender tooling specialist - Builds Python add-ons, asset validators, exporters, and pipeline automations that turn repetitive DCC work into reliable one-click workflows",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/game-development/blender/blender-addon-engineer.md"
+    },
+    {
+      "id": "specialized/blockchain-security-auditor.md",
+      "division": "specialized",
+      "categoryLabel": "SPECIALIZED",
+      "title": "Blockchain Security Auditor",
+      "description": "Expert smart contract security auditor specializing in vulnerability detection, formal verification, exploit analysis, and comprehensive audit report writing for DeFi protocols and blockchain applications.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/blockchain-security-auditor.md"
+    },
+    {
+      "id": "marketing/marketing-book-co-author.md",
+      "division": "marketing",
+      "categoryLabel": "MARKETING",
+      "title": "Book Co-Author",
+      "description": "Strategic thought-leadership book collaborator for founders, experts, and operators turning voice notes, fragments, and positioning into structured first-person chapters.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-book-co-author.md"
+    },
+    {
+      "id": "design/design-brand-guardian.md",
+      "division": "design",
+      "categoryLabel": "DESIGN",
+      "title": "Brand Guardian",
+      "description": "Expert brand strategist and guardian specializing in brand identity development, consistency maintenance, and strategic brand positioning",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/design/design-brand-guardian.md"
+    },
+    {
+      "id": "marketing/marketing-carousel-growth-engine.md",
+      "division": "marketing",
+      "categoryLabel": "MARKETING",
+      "title": "Carousel Growth Engine",
+      "description": "Autonomous TikTok and Instagram carousel generation specialist. Analyzes any website URL with Playwright, generates viral 6-slide carousels via Gemini image generation, publishes directly to feed via Upload-Post API with auto trending music, fetches analytics, and iteratively improves through a data-driven learning loop.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-carousel-growth-engine.md"
+    },
+    {
+      "id": "marketing/marketing-china-ecommerce-operator.md",
+      "division": "marketing",
+      "categoryLabel": "MARKETING",
+      "title": "China E-Commerce Operator",
+      "description": "Expert China e-commerce operations specialist covering Taobao, Tmall, Pinduoduo, and JD ecosystems with deep expertise in product listing optimization, live commerce, store operations, 618/Double 11 campaigns, and cross-platform strategy.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-china-ecommerce-operator.md"
+    },
+    {
+      "id": "engineering/engineering-code-reviewer.md",
+      "division": "engineering",
+      "categoryLabel": "ENGINEERING",
+      "title": "Code Reviewer",
+      "description": "Expert code reviewer who provides constructive, actionable feedback focused on correctness, maintainability, security, and performance — not style preferences.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-code-reviewer.md"
+    },
+    {
+      "id": "specialized/compliance-auditor.md",
+      "division": "specialized",
+      "categoryLabel": "SPECIALIZED",
+      "title": "Compliance Auditor",
+      "description": "Expert technical compliance auditor specializing in SOC 2, ISO 27001, HIPAA, and PCI-DSS audits — from readiness assessment through evidence collection to certification.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/compliance-auditor.md"
+    },
+    {
+      "id": "marketing/marketing-content-creator.md",
+      "division": "marketing",
+      "categoryLabel": "MARKETING",
+      "title": "Content Creator",
+      "description": "Expert content strategist and creator for multi-platform campaigns. Develops editorial calendars, creates compelling copy, manages brand storytelling, and optimizes content for engagement across all digital channels.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-content-creator.md"
+    },
+    {
+      "id": "specialized/corporate-training-designer.md",
+      "division": "specialized",
+      "categoryLabel": "SPECIALIZED",
+      "title": "Corporate Training Designer",
+      "description": "Expert in enterprise training system design and curriculum development — proficient in training needs analysis, instructional design methodology, blended learning program design, internal trainer development, leadership programs, and training effectiveness evaluation and continuous optimization.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/corporate-training-designer.md"
+    },
+    {
+      "id": "marketing/marketing-cross-border-ecommerce.md",
+      "division": "marketing",
+      "categoryLabel": "MARKETING",
+      "title": "Cross-Border E-Commerce Specialist",
+      "description": "Full-funnel cross-border e-commerce strategist covering Amazon, Shopee, Lazada, AliExpress, Temu, and TikTok Shop operations, international logistics and overseas warehousing, compliance and taxation, multilingual listing optimization, brand globalization, and DTC independent site development.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-cross-border-ecommerce.md"
+    },
+    {
+      "id": "specialized/specialized-cultural-intelligence-strategist.md",
+      "division": "specialized",
+      "categoryLabel": "SPECIALIZED",
+      "title": "Cultural Intelligence Strategist",
+      "description": "CQ specialist that detects invisible exclusion, researches global context, and ensures software resonates authentically across intersectional identities.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/specialized-cultural-intelligence-strategist.md"
+    },
+    {
+      "id": "specialized/data-consolidation-agent.md",
+      "division": "specialized",
+      "categoryLabel": "SPECIALIZED",
+      "title": "Data Consolidation Agent",
+      "description": "AI agent that consolidates extracted sales data into live reporting dashboards with territory, rep, and pipeline summaries",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/data-consolidation-agent.md"
+    },
+    {
+      "id": "engineering/engineering-data-engineer.md",
+      "division": "engineering",
+      "categoryLabel": "ENGINEERING",
+      "title": "Data Engineer",
+      "description": "Expert data engineer specializing in building reliable data pipelines, lakehouse architectures, and scalable data infrastructure. Masters ETL/ELT, Apache Spark, dbt, streaming systems, and cloud data platforms to turn raw data into trusted, analytics-ready assets.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-data-engineer.md"
+    },
+    {
+      "id": "engineering/engineering-database-optimizer.md",
+      "division": "engineering",
+      "categoryLabel": "ENGINEERING",
+      "title": "Database Optimizer",
+      "description": "Expert database specialist focusing on schema design, query optimization, indexing strategies, and performance tuning for PostgreSQL, MySQL, and modern databases like Supabase and PlanetScale.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-database-optimizer.md"
+    },
+    {
+      "id": "sales/sales-deal-strategist.md",
+      "division": "sales",
+      "categoryLabel": "SALES",
+      "title": "Deal Strategist",
+      "description": "Senior deal strategist specializing in MEDDPICC qualification, competitive positioning, and win planning for complex B2B sales cycles. Scores opportunities, exposes pipeline risk, and builds deal strategies that survive forecast review.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/sales/sales-deal-strategist.md"
+    },
+    {
+      "id": "specialized/specialized-developer-advocate.md",
+      "division": "specialized",
+      "categoryLabel": "SPECIALIZED",
+      "title": "Developer Advocate",
+      "description": "Expert developer advocate specializing in building developer communities, creating compelling technical content, optimizing developer experience (DX), and driving platform adoption through authentic engineering engagement. Bridges product and engineering teams with external developers.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/specialized-developer-advocate.md"
+    },
+    {
+      "id": "engineering/engineering-devops-automator.md",
+      "division": "engineering",
+      "categoryLabel": "ENGINEERING",
+      "title": "DevOps Automator",
+      "description": "Expert DevOps engineer specializing in infrastructure automation, CI/CD pipeline development, and cloud operations",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-devops-automator.md"
+    },
+    {
+      "id": "sales/sales-discovery-coach.md",
+      "division": "sales",
+      "categoryLabel": "SALES",
+      "title": "Discovery Coach",
+      "description": "Coaches sales teams on elite discovery methodology — question design, current-state mapping, gap quantification, and call structure that surfaces real buying motivation.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/sales/sales-discovery-coach.md"
+    },
+    {
+      "id": "specialized/specialized-document-generator.md",
+      "division": "specialized",
+      "categoryLabel": "SPECIALIZED",
+      "title": "Document Generator",
+      "description": "Expert document creation specialist who generates professional PDF, PPTX, DOCX, and XLSX files using code-based approaches with proper formatting, charts, and data visualization.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/specialized-document-generator.md"
+    },
+    {
+      "id": "marketing/marketing-douyin-strategist.md",
+      "division": "marketing",
+      "categoryLabel": "MARKETING",
+      "title": "Douyin Strategist",
+      "description": "Short-video marketing expert specializing in the Douyin platform, with deep expertise in recommendation algorithm mechanics, viral video planning, livestream commerce workflows, and full-funnel brand growth through content matrix strategies.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-douyin-strategist.md"
+    },
+    {
+      "id": "engineering/engineering-embedded-firmware-engineer.md",
+      "division": "engineering",
+      "categoryLabel": "ENGINEERING",
+      "title": "Embedded Firmware Engineer",
+      "description": "Specialist in bare-metal and RTOS firmware - ESP32/ESP-IDF, PlatformIO, Arduino, ARM Cortex-M, STM32 HAL/LL, Nordic nRF5/nRF Connect SDK, FreeRTOS, Zephyr",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-embedded-firmware-engineer.md"
+    },
+    {
+      "id": "testing/testing-evidence-collector.md",
+      "division": "testing",
+      "categoryLabel": "TESTING",
+      "title": "Evidence Collector",
+      "description": "Screenshot-obsessed, fantasy-allergic QA specialist - Default to finding 3-5 issues, requires visual proof for everything",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/testing/testing-evidence-collector.md"
+    },
+    {
+      "id": "strategy/EXECUTIVE-BRIEF.md",
+      "division": "strategy",
+      "categoryLabel": "STRATEGY",
+      "title": "EXECUTIVE BRIEF",
+      "description": "(No description in frontmatter — open on GitHub for full agent definition.)",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/strategy/EXECUTIVE-BRIEF.md"
+    },
+    {
+      "id": "support/support-executive-summary-generator.md",
+      "division": "support",
+      "categoryLabel": "SUPPORT",
+      "title": "Executive Summary Generator",
+      "description": "Consultant-grade AI specialist trained to think and communicate like a senior strategy consultant. Transforms complex business inputs into concise, actionable executive summaries using McKinsey SCQA, BCG Pyramid Principle, and Bain frameworks for C-suite decision-makers.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/support/support-executive-summary-generator.md"
+    },
+    {
+      "id": "project-management/project-management-experiment-tracker.md",
+      "division": "project-management",
+      "categoryLabel": "PROJECT MANAGEMENT",
+      "title": "Experiment Tracker",
+      "description": "Expert project manager specializing in experiment design, execution tracking, and data-driven decision making. Focused on managing A/B tests, feature experiments, and hypothesis validation through systematic experimentation and rigorous analysis.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/project-management/project-management-experiment-tracker.md"
+    },
+    {
+      "id": "product/product-feedback-synthesizer.md",
+      "division": "product",
+      "categoryLabel": "PRODUCT",
+      "title": "Feedback Synthesizer",
+      "description": "Expert in collecting, analyzing, and synthesizing user feedback from multiple channels to extract actionable product insights. Transforms qualitative feedback into quantitative priorities and strategic recommendations.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/product/product-feedback-synthesizer.md"
+    },
+    {
+      "id": "engineering/engineering-feishu-integration-developer.md",
+      "division": "engineering",
+      "categoryLabel": "ENGINEERING",
+      "title": "Feishu Integration Developer",
+      "description": "Full-stack integration expert specializing in the Feishu (Lark) Open Platform — proficient in Feishu bots, mini programs, approval workflows, Bitable (multidimensional spreadsheets), interactive message cards, Webhooks, SSO authentication, and workflow automation, building enterprise-grade collaboration and automation solutions within the Feishu ecosystem.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-feishu-integration-developer.md"
+    },
+    {
+      "id": "support/support-finance-tracker.md",
+      "division": "support",
+      "categoryLabel": "SUPPORT",
+      "title": "Finance Tracker",
+      "description": "Expert financial analyst and controller specializing in financial planning, budget management, and business performance analysis. Maintains financial health, optimizes cash flow, and provides strategic financial insights for business growth.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/support/support-finance-tracker.md"
+    },
+    {
+      "id": "specialized/specialized-french-consulting-market.md",
+      "division": "specialized",
+      "categoryLabel": "SPECIALIZED",
+      "title": "French Consulting Market Navigator",
+      "description": "Navigate the French ESN/SI freelance ecosystem — margin models, platform mechanics (Malt, collective.work), portage salarial, rate positioning, and payment cycle realities",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/specialized-french-consulting-market.md"
+    },
+    {
+      "id": "engineering/engineering-frontend-developer.md",
+      "division": "engineering",
+      "categoryLabel": "ENGINEERING",
+      "title": "Frontend Developer",
+      "description": "Expert frontend developer specializing in modern web technologies, React/Vue/Angular frameworks, UI implementation, and performance optimization",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-frontend-developer.md"
+    },
+    {
+      "id": "game-development/game-audio-engineer.md",
+      "division": "game-development",
+      "categoryLabel": "GAME DEVELOPMENT",
+      "title": "Game Audio Engineer",
+      "description": "Interactive audio specialist - Masters FMOD/Wwise integration, adaptive music systems, spatial audio, and audio performance budgeting across all game engines",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/game-development/game-audio-engineer.md"
+    },
+    {
+      "id": "game-development/game-designer.md",
+      "division": "game-development",
+      "categoryLabel": "GAME DEVELOPMENT",
+      "title": "Game Designer",
+      "description": "Systems and mechanics architect - Masters GDD authorship, player psychology, economy balancing, and gameplay loop design across all engines and genres",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/game-development/game-designer.md"
+    },
+    {
+      "id": "academic/academic-geographer.md",
+      "division": "academic",
+      "categoryLabel": "ACADEMIC",
+      "title": "Geographer",
+      "description": "Expert in physical and human geography, climate systems, cartography, and spatial analysis — builds geographically coherent worlds where terrain, climate, resources, and settlement patterns make scientific sense",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/academic/academic-geographer.md"
+    },
+    {
+      "id": "engineering/engineering-git-workflow-master.md",
+      "division": "engineering",
+      "categoryLabel": "ENGINEERING",
+      "title": "Git Workflow Master",
+      "description": "Expert in Git workflows, branching strategies, and version control best practices including conventional commits, rebasing, worktrees, and CI-friendly branch management.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-git-workflow-master.md"
+    },
+    {
+      "id": "game-development/godot/godot-gameplay-scripter.md",
+      "division": "game-development",
+      "categoryLabel": "GODOT",
+      "title": "Godot Gameplay Scripter",
+      "description": "Composition and signal integrity specialist - Masters GDScript 2.0, C# integration, node-based architecture, and type-safe signal design for Godot 4 projects",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/game-development/godot/godot-gameplay-scripter.md"
+    },
+    {
+      "id": "game-development/godot/godot-multiplayer-engineer.md",
+      "division": "game-development",
+      "categoryLabel": "GODOT",
+      "title": "Godot Multiplayer Engineer",
+      "description": "Godot 4 networking specialist - Masters the MultiplayerAPI, scene replication, ENet/WebRTC transport, RPCs, and authority models for real-time multiplayer games",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/game-development/godot/godot-multiplayer-engineer.md"
+    },
+    {
+      "id": "game-development/godot/godot-shader-developer.md",
+      "division": "game-development",
+      "categoryLabel": "GODOT",
+      "title": "Godot Shader Developer",
+      "description": "Godot 4 visual effects specialist - Masters the Godot Shading Language (GLSL-like), VisualShader editor, CanvasItem and Spatial shaders, post-processing, and performance optimization for 2D/3D effects",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/game-development/godot/godot-shader-developer.md"
+    },
+    {
+      "id": "specialized/government-digital-presales-consultant.md",
+      "division": "specialized",
+      "categoryLabel": "SPECIALIZED",
+      "title": "Government Digital Presales Consultant",
+      "description": "Presales expert for China's government digital transformation market (ToG), proficient in policy interpretation, solution design, bid document preparation, POC validation, compliance requirements (classified protection/cryptographic assessment/Xinchuang domestic IT), and stakeholder management — helping technical teams efficiently win government IT projects.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/government-digital-presales-consultant.md"
+    },
+    {
+      "id": "marketing/marketing-growth-hacker.md",
+      "division": "marketing",
+      "categoryLabel": "MARKETING",
+      "title": "Growth Hacker",
+      "description": "Expert growth strategist specializing in rapid user acquisition through data-driven experimentation. Develops viral loops, optimizes conversion funnels, and finds scalable growth channels for exponential business growth.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-growth-hacker.md"
+    },
+    {
+      "id": "strategy/coordination/handoff-templates.md",
+      "division": "strategy",
+      "categoryLabel": "COORDINATION",
+      "title": "handoff templates",
+      "description": "(No description in frontmatter — open on GitHub for full agent definition.)",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/strategy/coordination/handoff-templates.md"
+    },
+    {
+      "id": "specialized/healthcare-marketing-compliance.md",
+      "division": "specialized",
+      "categoryLabel": "SPECIALIZED",
+      "title": "Healthcare Marketing Compliance Specialist",
+      "description": "Expert in healthcare marketing compliance in China, proficient in the Advertising Law, Medical Advertisement Management Measures, Drug Administration Law, and related regulations — covering pharmaceuticals, medical devices, medical aesthetics, health supplements, and internet healthcare across content review, risk control, platform rule interpretation, and patient privacy protection, helping enterprises conduct effective health marketing within legal boundaries.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/healthcare-marketing-compliance.md"
+    },
+    {
+      "id": "academic/academic-historian.md",
+      "division": "academic",
+      "categoryLabel": "ACADEMIC",
+      "title": "Historian",
+      "description": "Expert in historical analysis, periodization, material culture, and historiography — validates historical coherence and enriches settings with authentic period detail grounded in primary and secondary sources",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/academic/academic-historian.md"
+    },
+    {
+      "id": "specialized/identity-graph-operator.md",
+      "division": "specialized",
+      "categoryLabel": "SPECIALIZED",
+      "title": "Identity Graph Operator",
+      "description": "Operates a shared identity graph that multiple AI agents resolve against. Ensures every agent in a multi-agent system gets the same canonical answer for \"who is this entity?\" - deterministically, even under concurrent writes.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/identity-graph-operator.md"
+    },
+    {
+      "id": "design/design-image-prompt-engineer.md",
+      "division": "design",
+      "categoryLabel": "DESIGN",
+      "title": "Image Prompt Engineer",
+      "description": "Expert photography prompt engineer specializing in crafting detailed, evocative prompts for AI image generation. Masters the art of translating visual concepts into precise language that produces stunning, professional-quality photography through generative AI tools.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/design/design-image-prompt-engineer.md"
+    },
+    {
+      "id": "engineering/engineering-incident-response-commander.md",
+      "division": "engineering",
+      "categoryLabel": "ENGINEERING",
+      "title": "Incident Response Commander",
+      "description": "Expert incident commander specializing in production incident management, structured response coordination, post-mortem facilitation, SLO/SLI tracking, and on-call process design for reliable engineering organizations.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-incident-response-commander.md"
+    },
+    {
+      "id": "design/design-inclusive-visuals-specialist.md",
+      "division": "design",
+      "categoryLabel": "DESIGN",
+      "title": "Inclusive Visuals Specialist",
+      "description": "Representation expert who defeats systemic AI biases to generate culturally accurate, affirming, and non-stereotypical images and video.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/design/design-inclusive-visuals-specialist.md"
+    },
+    {
+      "id": "support/support-infrastructure-maintainer.md",
+      "division": "support",
+      "categoryLabel": "SUPPORT",
+      "title": "Infrastructure Maintainer",
+      "description": "Expert infrastructure specialist focused on system reliability, performance optimization, and technical operations management. Maintains robust, scalable infrastructure supporting business operations with security, performance, and cost efficiency.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/support/support-infrastructure-maintainer.md"
+    },
+    {
+      "id": "marketing/marketing-instagram-curator.md",
+      "division": "marketing",
+      "categoryLabel": "MARKETING",
+      "title": "Instagram Curator",
+      "description": "Expert Instagram marketing specialist focused on visual storytelling, community building, and multi-format content optimization. Masters aesthetic development and drives meaningful engagement.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-instagram-curator.md"
+    },
+    {
+      "id": "project-management/project-management-jira-workflow-steward.md",
+      "division": "project-management",
+      "categoryLabel": "PROJECT MANAGEMENT",
+      "title": "Jira Workflow Steward",
+      "description": "Expert delivery operations specialist who enforces Jira-linked Git workflows, traceable commits, structured pull requests, and release-safe branch strategy across software teams.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/project-management/project-management-jira-workflow-steward.md"
+    },
+    {
+      "id": "specialized/specialized-korean-business-navigator.md",
+      "division": "specialized",
+      "categoryLabel": "SPECIALIZED",
+      "title": "Korean Business Navigator",
+      "description": "Korean business culture for foreign professionals — 품의 decision process, nunchi reading, KakaoTalk business etiquette, hierarchy navigation, and relationship-first deal mechanics",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/specialized-korean-business-navigator.md"
+    },
+    {
+      "id": "marketing/marketing-kuaishou-strategist.md",
+      "division": "marketing",
+      "categoryLabel": "MARKETING",
+      "title": "Kuaishou Strategist",
+      "description": "Expert Kuaishou marketing strategist specializing in short-video content for China's lower-tier city markets, live commerce operations, community trust building, and grassroots audience growth on 快手.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-kuaishou-strategist.md"
+    },
+    {
+      "id": "support/support-legal-compliance-checker.md",
+      "division": "support",
+      "categoryLabel": "SUPPORT",
+      "title": "Legal Compliance Checker",
+      "description": "Expert legal and compliance specialist ensuring business operations, data handling, and content creation comply with relevant laws, regulations, and industry standards across multiple jurisdictions.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/support/support-legal-compliance-checker.md"
+    },
+    {
+      "id": "game-development/level-designer.md",
+      "division": "game-development",
+      "categoryLabel": "GAME DEVELOPMENT",
+      "title": "Level Designer",
+      "description": "Spatial storytelling and flow specialist - Masters layout theory, pacing architecture, encounter design, and environmental narrative across all game engines",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/game-development/level-designer.md"
+    },
+    {
+      "id": "marketing/marketing-linkedin-content-creator.md",
+      "division": "marketing",
+      "categoryLabel": "MARKETING",
+      "title": "LinkedIn Content Creator",
+      "description": "Expert LinkedIn content strategist focused on thought leadership, personal brand building, and high-engagement professional content. Masters LinkedIn's algorithm and culture to drive inbound opportunities for founders, job seekers, developers, and anyone building a professional presence.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-linkedin-content-creator.md"
+    },
+    {
+      "id": "marketing/marketing-livestream-commerce-coach.md",
+      "division": "marketing",
+      "categoryLabel": "MARKETING",
+      "title": "Livestream Commerce Coach",
+      "description": "Veteran livestream e-commerce coach specializing in host training and live room operations across Douyin, Kuaishou, Taobao Live, and Channels, covering script design, product sequencing, paid-vs-organic traffic balancing, conversion closing techniques, and real-time data-driven optimization.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-livestream-commerce-coach.md"
+    },
+    {
+      "id": "specialized/lsp-index-engineer.md",
+      "division": "specialized",
+      "categoryLabel": "SPECIALIZED",
+      "title": "LSP/Index Engineer",
+      "description": "Language Server Protocol specialist building unified code intelligence systems through LSP client orchestration and semantic indexing",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/lsp-index-engineer.md"
+    },
+    {
+      "id": "spatial-computing/macos-spatial-metal-engineer.md",
+      "division": "spatial-computing",
+      "categoryLabel": "SPATIAL COMPUTING",
+      "title": "macOS Spatial/Metal Engineer",
+      "description": "Native Swift and Metal specialist building high-performance 3D rendering systems and spatial computing experiences for macOS and Vision Pro",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/spatial-computing/macos-spatial-metal-engineer.md"
+    },
+    {
+      "id": "specialized/specialized-mcp-builder.md",
+      "division": "specialized",
+      "categoryLabel": "SPECIALIZED",
+      "title": "MCP Builder",
+      "description": "Expert Model Context Protocol developer who designs, builds, and tests MCP servers that extend AI agent capabilities with custom tools, resources, and prompts.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/specialized-mcp-builder.md"
+    },
+    {
+      "id": "engineering/engineering-mobile-app-builder.md",
+      "division": "engineering",
+      "categoryLabel": "ENGINEERING",
+      "title": "Mobile App Builder",
+      "description": "Specialized mobile application developer with expertise in native iOS/Android development and cross-platform frameworks",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-mobile-app-builder.md"
+    },
+    {
+      "id": "specialized/specialized-model-qa.md",
+      "division": "specialized",
+      "categoryLabel": "SPECIALIZED",
+      "title": "Model QA Specialist",
+      "description": "Independent model QA expert who audits ML and statistical models end-to-end - from documentation review and data reconstruction to replication, calibration testing, interpretability analysis, performance monitoring, and audit-grade reporting.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/specialized-model-qa.md"
+    },
+    {
+      "id": "game-development/narrative-designer.md",
+      "division": "game-development",
+      "categoryLabel": "GAME DEVELOPMENT",
+      "title": "Narrative Designer",
+      "description": "Story systems and dialogue architect - Masters GDD-aligned narrative design, branching dialogue, lore architecture, and environmental storytelling across all game engines",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/game-development/narrative-designer.md"
+    },
+    {
+      "id": "academic/academic-narratologist.md",
+      "division": "academic",
+      "categoryLabel": "ACADEMIC",
+      "title": "Narratologist",
+      "description": "Expert in narrative theory, story structure, character arcs, and literary analysis — grounds advice in established frameworks from Propp to Campbell to modern narratology",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/academic/academic-narratologist.md"
+    },
+    {
+      "id": "strategy/nexus-strategy.md",
+      "division": "strategy",
+      "categoryLabel": "STRATEGY",
+      "title": "nexus strategy",
+      "description": "(No description in frontmatter — open on GitHub for full agent definition.)",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/strategy/nexus-strategy.md"
+    },
+    {
+      "id": "sales/sales-outbound-strategist.md",
+      "division": "sales",
+      "categoryLabel": "SALES",
+      "title": "Outbound Strategist",
+      "description": "Signal-based outbound specialist who designs multi-channel prospecting sequences, defines ICPs, and builds pipeline through research-driven personalization — not volume.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/sales/sales-outbound-strategist.md"
+    },
+    {
+      "id": "paid-media/paid-media-auditor.md",
+      "division": "paid-media",
+      "categoryLabel": "PAID MEDIA",
+      "title": "Paid Media Auditor",
+      "description": "Comprehensive paid media auditor who systematically evaluates Google Ads, Microsoft Ads, and Meta accounts across 200+ checkpoints spanning account structure, tracking, bidding, creative, audiences, and competitive positioning. Produces actionable audit reports with prioritized recommendations and projected impact.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/paid-media/paid-media-auditor.md"
+    },
+    {
+      "id": "paid-media/paid-media-paid-social-strategist.md",
+      "division": "paid-media",
+      "categoryLabel": "PAID MEDIA",
+      "title": "Paid Social Strategist",
+      "description": "Cross-platform paid social advertising specialist covering Meta (Facebook/Instagram), LinkedIn, TikTok, Pinterest, X, and Snapchat. Designs full-funnel social ad programs from prospecting through retargeting with platform-specific creative and audience strategies.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/paid-media/paid-media-paid-social-strategist.md"
+    },
+    {
+      "id": "testing/testing-performance-benchmarker.md",
+      "division": "testing",
+      "categoryLabel": "TESTING",
+      "title": "Performance Benchmarker",
+      "description": "Expert performance testing and optimization specialist focused on measuring, analyzing, and improving system performance across all applications and infrastructure",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/testing/testing-performance-benchmarker.md"
+    },
+    {
+      "id": "strategy/playbooks/phase-0-discovery.md",
+      "division": "strategy",
+      "categoryLabel": "PLAYBOOKS",
+      "title": "phase 0 discovery",
+      "description": "(No description in frontmatter — open on GitHub for full agent definition.)",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/strategy/playbooks/phase-0-discovery.md"
+    },
+    {
+      "id": "strategy/playbooks/phase-1-strategy.md",
+      "division": "strategy",
+      "categoryLabel": "PLAYBOOKS",
+      "title": "phase 1 strategy",
+      "description": "(No description in frontmatter — open on GitHub for full agent definition.)",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/strategy/playbooks/phase-1-strategy.md"
+    },
+    {
+      "id": "strategy/playbooks/phase-2-foundation.md",
+      "division": "strategy",
+      "categoryLabel": "PLAYBOOKS",
+      "title": "phase 2 foundation",
+      "description": "(No description in frontmatter — open on GitHub for full agent definition.)",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/strategy/playbooks/phase-2-foundation.md"
+    },
+    {
+      "id": "strategy/playbooks/phase-3-build.md",
+      "division": "strategy",
+      "categoryLabel": "PLAYBOOKS",
+      "title": "phase 3 build",
+      "description": "(No description in frontmatter — open on GitHub for full agent definition.)",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/strategy/playbooks/phase-3-build.md"
+    },
+    {
+      "id": "strategy/playbooks/phase-4-hardening.md",
+      "division": "strategy",
+      "categoryLabel": "PLAYBOOKS",
+      "title": "phase 4 hardening",
+      "description": "(No description in frontmatter — open on GitHub for full agent definition.)",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/strategy/playbooks/phase-4-hardening.md"
+    },
+    {
+      "id": "strategy/playbooks/phase-5-launch.md",
+      "division": "strategy",
+      "categoryLabel": "PLAYBOOKS",
+      "title": "phase 5 launch",
+      "description": "(No description in frontmatter — open on GitHub for full agent definition.)",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/strategy/playbooks/phase-5-launch.md"
+    },
+    {
+      "id": "strategy/playbooks/phase-6-operate.md",
+      "division": "strategy",
+      "categoryLabel": "PLAYBOOKS",
+      "title": "phase 6 operate",
+      "description": "(No description in frontmatter — open on GitHub for full agent definition.)",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/strategy/playbooks/phase-6-operate.md"
+    },
+    {
+      "id": "sales/sales-pipeline-analyst.md",
+      "division": "sales",
+      "categoryLabel": "SALES",
+      "title": "Pipeline Analyst",
+      "description": "Revenue operations analyst specializing in pipeline health diagnostics, deal velocity analysis, forecast accuracy, and data-driven sales coaching. Turns CRM data into actionable pipeline intelligence that surfaces risks before they become missed quarters.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/sales/sales-pipeline-analyst.md"
+    },
+    {
+      "id": "marketing/marketing-podcast-strategist.md",
+      "division": "marketing",
+      "categoryLabel": "MARKETING",
+      "title": "Podcast Strategist",
+      "description": "Content strategy and operations expert for the Chinese podcast market, with deep expertise in Xiaoyuzhou, Ximalaya, and other major audio platforms, covering show positioning, audio production, audience growth, multi-platform distribution, and monetization to help podcast creators build sticky audio content brands.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-podcast-strategist.md"
+    },
+    {
+      "id": "paid-media/paid-media-ppc-strategist.md",
+      "division": "paid-media",
+      "categoryLabel": "PAID MEDIA",
+      "title": "PPC Campaign Strategist",
+      "description": "Senior paid media strategist specializing in large-scale search, shopping, and performance max campaign architecture across Google, Microsoft, and Amazon ad platforms. Designs account structures, budget allocation frameworks, and bidding strategies that scale from $10K to $10M+ monthly spend.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/paid-media/paid-media-ppc-strategist.md"
+    },
+    {
+      "id": "marketing/marketing-private-domain-operator.md",
+      "division": "marketing",
+      "categoryLabel": "MARKETING",
+      "title": "Private Domain Operator",
+      "description": "Expert in building enterprise WeChat (WeCom) private domain ecosystems, with deep expertise in SCRM systems, segmented community operations, Mini Program commerce integration, user lifecycle management, and full-funnel conversion optimization.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-private-domain-operator.md"
+    },
+    {
+      "id": "product/product-manager.md",
+      "division": "product",
+      "categoryLabel": "PRODUCT",
+      "title": "Product Manager",
+      "description": "Holistic product leader who owns the full product lifecycle — from discovery and strategy through roadmap, stakeholder alignment, go-to-market, and outcome measurement. Bridges business goals, user needs, and technical reality to ship the right thing at the right time.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/product/product-manager.md"
+    },
+    {
+      "id": "paid-media/paid-media-programmatic-buyer.md",
+      "division": "paid-media",
+      "categoryLabel": "PAID MEDIA",
+      "title": "Programmatic & Display Buyer",
+      "description": "Display advertising and programmatic media buying specialist covering managed placements, Google Display Network, DV360, trade desk platforms, partner media (newsletters, sponsored content), and ABM display strategies via platforms like Demandbase and 6Sense.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/paid-media/paid-media-programmatic-buyer.md"
+    },
+    {
+      "id": "project-management/project-management-project-shepherd.md",
+      "division": "project-management",
+      "categoryLabel": "PROJECT MANAGEMENT",
+      "title": "Project Shepherd",
+      "description": "Expert project manager specializing in cross-functional project coordination, timeline management, and stakeholder alignment. Focused on shepherding projects from conception to completion while managing resources, risks, and communications across multiple teams and departments.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/project-management/project-management-project-shepherd.md"
+    },
+    {
+      "id": "sales/sales-proposal-strategist.md",
+      "division": "sales",
+      "categoryLabel": "SALES",
+      "title": "Proposal Strategist",
+      "description": "Strategic proposal architect who transforms RFPs and sales opportunities into compelling win narratives. Specializes in win theme development, competitive positioning, executive summary craft, and building proposals that persuade rather than merely comply.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/sales/sales-proposal-strategist.md"
+    },
+    {
+      "id": "academic/academic-psychologist.md",
+      "division": "academic",
+      "categoryLabel": "ACADEMIC",
+      "title": "Psychologist",
+      "description": "Expert in human behavior, personality theory, motivation, and cognitive patterns — builds psychologically credible characters and interactions grounded in clinical and research frameworks",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/academic/academic-psychologist.md"
+    },
+    {
+      "id": "strategy/QUICKSTART.md",
+      "division": "strategy",
+      "categoryLabel": "STRATEGY",
+      "title": "QUICKSTART",
+      "description": "(No description in frontmatter — open on GitHub for full agent definition.)",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/strategy/QUICKSTART.md"
+    },
+    {
+      "id": "engineering/engineering-rapid-prototyper.md",
+      "division": "engineering",
+      "categoryLabel": "ENGINEERING",
+      "title": "Rapid Prototyper",
+      "description": "Specialized in ultra-fast proof-of-concept development and MVP creation using efficient tools and frameworks",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-rapid-prototyper.md"
+    },
+    {
+      "id": "testing/testing-reality-checker.md",
+      "division": "testing",
+      "categoryLabel": "TESTING",
+      "title": "Reality Checker",
+      "description": "Stops fantasy approvals, evidence-based certification - Default to \"NEEDS WORK\", requires overwhelming proof for production readiness",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/testing/testing-reality-checker.md"
+    },
+    {
+      "id": "specialized/recruitment-specialist.md",
+      "division": "specialized",
+      "categoryLabel": "SPECIALIZED",
+      "title": "Recruitment Specialist",
+      "description": "Expert recruitment operations and talent acquisition specialist — skilled in China's major hiring platforms, talent assessment frameworks, and labor law compliance. Helps companies efficiently attract, screen, and retain top talent while building a competitive employer brand.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/recruitment-specialist.md"
+    },
+    {
+      "id": "marketing/marketing-reddit-community-builder.md",
+      "division": "marketing",
+      "categoryLabel": "MARKETING",
+      "title": "Reddit Community Builder",
+      "description": "Expert Reddit marketing specialist focused on authentic community engagement, value-driven content creation, and long-term relationship building. Masters Reddit culture navigation.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-reddit-community-builder.md"
+    },
+    {
+      "id": "specialized/report-distribution-agent.md",
+      "division": "specialized",
+      "categoryLabel": "SPECIALIZED",
+      "title": "Report Distribution Agent",
+      "description": "AI agent that automates distribution of consolidated sales reports to representatives based on territorial parameters",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/report-distribution-agent.md"
+    },
+    {
+      "id": "game-development/roblox-studio/roblox-avatar-creator.md",
+      "division": "game-development",
+      "categoryLabel": "ROBLOX STUDIO",
+      "title": "Roblox Avatar Creator",
+      "description": "Roblox UGC and avatar pipeline specialist - Masters Roblox's avatar system, UGC item creation, accessory rigging, texture standards, and the Creator Marketplace submission pipeline",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/game-development/roblox-studio/roblox-avatar-creator.md"
+    },
+    {
+      "id": "game-development/roblox-studio/roblox-experience-designer.md",
+      "division": "game-development",
+      "categoryLabel": "ROBLOX STUDIO",
+      "title": "Roblox Experience Designer",
+      "description": "Roblox platform UX and monetization specialist - Masters engagement loop design, DataStore-driven progression, Roblox monetization systems (Passes, Developer Products, UGC), and player retention for Roblox experiences",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/game-development/roblox-studio/roblox-experience-designer.md"
+    },
+    {
+      "id": "game-development/roblox-studio/roblox-systems-scripter.md",
+      "division": "game-development",
+      "categoryLabel": "ROBLOX STUDIO",
+      "title": "Roblox Systems Scripter",
+      "description": "Roblox platform engineering specialist - Masters Luau, the client-server security model, RemoteEvents/RemoteFunctions, DataStore, and module architecture for scalable Roblox experiences",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/game-development/roblox-studio/roblox-systems-scripter.md"
+    },
+    {
+      "id": "sales/sales-coach.md",
+      "division": "sales",
+      "categoryLabel": "SALES",
+      "title": "Sales Coach",
+      "description": "Expert sales coaching specialist focused on rep development, pipeline review facilitation, call coaching, deal strategy, and forecast accuracy. Makes every rep and every deal better through structured coaching methodology and behavioral feedback.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/sales/sales-coach.md"
+    },
+    {
+      "id": "specialized/sales-data-extraction-agent.md",
+      "division": "specialized",
+      "categoryLabel": "SPECIALIZED",
+      "title": "Sales Data Extraction Agent",
+      "description": "AI agent specialized in monitoring Excel files and extracting key sales metrics (MTD, YTD, Year End) for internal live reporting",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/sales-data-extraction-agent.md"
+    },
+    {
+      "id": "sales/sales-engineer.md",
+      "division": "sales",
+      "categoryLabel": "SALES",
+      "title": "Sales Engineer",
+      "description": "Senior pre-sales engineer specializing in technical discovery, demo engineering, POC scoping, competitive battlecards, and bridging product capabilities to business outcomes. Wins the technical decision so the deal can close.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/sales/sales-engineer.md"
+    },
+    {
+      "id": "specialized/specialized-salesforce-architect.md",
+      "division": "specialized",
+      "categoryLabel": "SPECIALIZED",
+      "title": "Salesforce Architect",
+      "description": "Solution architecture for Salesforce platform — multi-cloud design, integration patterns, governor limits, deployment strategy, and data model governance for enterprise-scale orgs",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/specialized-salesforce-architect.md"
+    },
+    {
+      "id": "strategy/runbooks/scenario-enterprise-feature.md",
+      "division": "strategy",
+      "categoryLabel": "RUNBOOKS",
+      "title": "scenario enterprise feature",
+      "description": "(No description in frontmatter — open on GitHub for full agent definition.)",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/strategy/runbooks/scenario-enterprise-feature.md"
+    },
+    {
+      "id": "strategy/runbooks/scenario-incident-response.md",
+      "division": "strategy",
+      "categoryLabel": "RUNBOOKS",
+      "title": "scenario incident response",
+      "description": "(No description in frontmatter — open on GitHub for full agent definition.)",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/strategy/runbooks/scenario-incident-response.md"
+    },
+    {
+      "id": "strategy/runbooks/scenario-marketing-campaign.md",
+      "division": "strategy",
+      "categoryLabel": "RUNBOOKS",
+      "title": "scenario marketing campaign",
+      "description": "(No description in frontmatter — open on GitHub for full agent definition.)",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/strategy/runbooks/scenario-marketing-campaign.md"
+    },
+    {
+      "id": "strategy/runbooks/scenario-startup-mvp.md",
+      "division": "strategy",
+      "categoryLabel": "RUNBOOKS",
+      "title": "scenario startup mvp",
+      "description": "(No description in frontmatter — open on GitHub for full agent definition.)",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/strategy/runbooks/scenario-startup-mvp.md"
+    },
+    {
+      "id": "paid-media/paid-media-search-query-analyst.md",
+      "division": "paid-media",
+      "categoryLabel": "PAID MEDIA",
+      "title": "Search Query Analyst",
+      "description": "Specialist in search term analysis, negative keyword architecture, and query-to-intent mapping. Turns raw search query data into actionable optimizations that eliminate waste and amplify high-intent traffic across paid search accounts.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/paid-media/paid-media-search-query-analyst.md"
+    },
+    {
+      "id": "engineering/engineering-security-engineer.md",
+      "division": "engineering",
+      "categoryLabel": "ENGINEERING",
+      "title": "Security Engineer",
+      "description": "Expert application security engineer specializing in threat modeling, vulnerability assessment, secure code review, and security architecture design for modern web and cloud-native applications.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-security-engineer.md"
+    },
+    {
+      "id": "engineering/engineering-senior-developer.md",
+      "division": "engineering",
+      "categoryLabel": "ENGINEERING",
+      "title": "Senior Developer",
+      "description": "Premium implementation specialist - Masters Laravel/Livewire/FluxUI, advanced CSS, Three.js integration",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-senior-developer.md"
+    },
+    {
+      "id": "project-management/project-manager-senior.md",
+      "division": "project-management",
+      "categoryLabel": "PROJECT MANAGEMENT",
+      "title": "Senior Project Manager",
+      "description": "Converts specs to tasks and remembers previous projects. Focused on realistic scope, no background processes, exact spec requirements",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/project-management/project-manager-senior.md"
+    },
+    {
+      "id": "marketing/marketing-seo-specialist.md",
+      "division": "marketing",
+      "categoryLabel": "MARKETING",
+      "title": "SEO Specialist",
+      "description": "Expert search engine optimization strategist specializing in technical SEO, content optimization, link authority building, and organic search growth. Drives sustainable traffic through data-driven search strategies.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-seo-specialist.md"
+    },
+    {
+      "id": "marketing/marketing-short-video-editing-coach.md",
+      "division": "marketing",
+      "categoryLabel": "MARKETING",
+      "title": "Short-Video Editing Coach",
+      "description": "Hands-on short-video editing coach covering the full post-production pipeline, with mastery of CapCut Pro, Premiere Pro, DaVinci Resolve, and Final Cut Pro across composition and camera language, color grading, audio engineering, motion graphics and VFX, subtitle design, multi-platform export optimization, editing workflow efficiency, and AI-assisted editing.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-short-video-editing-coach.md"
+    },
+    {
+      "id": "marketing/marketing-social-media-strategist.md",
+      "division": "marketing",
+      "categoryLabel": "MARKETING",
+      "title": "Social Media Strategist",
+      "description": "Expert social media strategist for LinkedIn, Twitter, and professional platforms. Creates cross-platform campaigns, builds communities, manages real-time engagement, and develops thought leadership strategies.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-social-media-strategist.md"
+    },
+    {
+      "id": "engineering/engineering-software-architect.md",
+      "division": "engineering",
+      "categoryLabel": "ENGINEERING",
+      "title": "Software Architect",
+      "description": "Expert software architect specializing in system design, domain-driven design, architectural patterns, and technical decision-making for scalable, maintainable systems.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-software-architect.md"
+    },
+    {
+      "id": "engineering/engineering-solidity-smart-contract-engineer.md",
+      "division": "engineering",
+      "categoryLabel": "ENGINEERING",
+      "title": "Solidity Smart Contract Engineer",
+      "description": "Expert Solidity developer specializing in EVM smart contract architecture, gas optimization, upgradeable proxy patterns, DeFi protocol development, and security-first contract design across Ethereum and L2 chains.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-solidity-smart-contract-engineer.md"
+    },
+    {
+      "id": "product/product-sprint-prioritizer.md",
+      "division": "product",
+      "categoryLabel": "PRODUCT",
+      "title": "Sprint Prioritizer",
+      "description": "Expert product manager specializing in agile sprint planning, feature prioritization, and resource allocation. Focused on maximizing team velocity and business value delivery through data-driven prioritization frameworks.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/product/product-sprint-prioritizer.md"
+    },
+    {
+      "id": "engineering/engineering-sre.md",
+      "division": "engineering",
+      "categoryLabel": "ENGINEERING",
+      "title": "SRE (Site Reliability Engineer)",
+      "description": "Expert site reliability engineer specializing in SLOs, error budgets, observability, chaos engineering, and toil reduction for production systems at scale.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-sre.md"
+    },
+    {
+      "id": "project-management/project-management-studio-operations.md",
+      "division": "project-management",
+      "categoryLabel": "PROJECT MANAGEMENT",
+      "title": "Studio Operations",
+      "description": "Expert operations manager specializing in day-to-day studio efficiency, process optimization, and resource coordination. Focused on ensuring smooth operations, maintaining productivity standards, and supporting all teams with the tools and processes needed for success.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/project-management/project-management-studio-operations.md"
+    },
+    {
+      "id": "project-management/project-management-studio-producer.md",
+      "division": "project-management",
+      "categoryLabel": "PROJECT MANAGEMENT",
+      "title": "Studio Producer",
+      "description": "Senior strategic leader specializing in high-level creative and technical project orchestration, resource allocation, and multi-project portfolio management. Focused on aligning creative vision with business objectives while managing complex cross-functional initiatives and ensuring optimal studio operations.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/project-management/project-management-studio-producer.md"
+    },
+    {
+      "id": "specialized/study-abroad-advisor.md",
+      "division": "specialized",
+      "categoryLabel": "SPECIALIZED",
+      "title": "Study Abroad Advisor",
+      "description": "Full-spectrum study abroad planning expert covering the US, UK, Canada, Australia, Europe, Hong Kong, and Singapore — proficient in undergraduate, master's, and PhD application strategy, school selection, essay coaching, profile enhancement, standardized test planning, visa preparation, and overseas life adaptation, helping Chinese students craft personalized end-to-end study abroad plans.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/study-abroad-advisor.md"
+    },
+    {
+      "id": "specialized/supply-chain-strategist.md",
+      "division": "specialized",
+      "categoryLabel": "SPECIALIZED",
+      "title": "Supply Chain Strategist",
+      "description": "Expert supply chain management and procurement strategy specialist — skilled in supplier development, strategic sourcing, quality control, and supply chain digitalization. Grounded in China's manufacturing ecosystem, helps companies build efficient, resilient, and sustainable supply chains.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/supply-chain-strategist.md"
+    },
+    {
+      "id": "support/support-support-responder.md",
+      "division": "support",
+      "categoryLabel": "SUPPORT",
+      "title": "Support Responder",
+      "description": "Expert customer support specialist delivering exceptional customer service, issue resolution, and user experience optimization. Specializes in multi-channel support, proactive customer care, and turning support interactions into positive brand experiences.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/support/support-support-responder.md"
+    },
+    {
+      "id": "game-development/technical-artist.md",
+      "division": "game-development",
+      "categoryLabel": "GAME DEVELOPMENT",
+      "title": "Technical Artist",
+      "description": "Art-to-engine pipeline specialist - Masters shaders, VFX systems, LOD pipelines, performance budgeting, and cross-engine asset optimization",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/game-development/technical-artist.md"
+    },
+    {
+      "id": "engineering/engineering-technical-writer.md",
+      "division": "engineering",
+      "categoryLabel": "ENGINEERING",
+      "title": "Technical Writer",
+      "description": "Expert technical writer specializing in developer documentation, API references, README files, and tutorials. Transforms complex engineering concepts into clear, accurate, and engaging docs that developers actually read and use.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-technical-writer.md"
+    },
+    {
+      "id": "spatial-computing/terminal-integration-specialist.md",
+      "division": "spatial-computing",
+      "categoryLabel": "SPATIAL COMPUTING",
+      "title": "Terminal Integration Specialist",
+      "description": "Terminal emulation, text rendering optimization, and SwiftTerm integration for modern Swift applications",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/spatial-computing/terminal-integration-specialist.md"
+    },
+    {
+      "id": "testing/testing-test-results-analyzer.md",
+      "division": "testing",
+      "categoryLabel": "TESTING",
+      "title": "Test Results Analyzer",
+      "description": "Expert test analysis specialist focused on comprehensive test result evaluation, quality metrics analysis, and actionable insight generation from testing activities",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/testing/testing-test-results-analyzer.md"
+    },
+    {
+      "id": "engineering/engineering-threat-detection-engineer.md",
+      "division": "engineering",
+      "categoryLabel": "ENGINEERING",
+      "title": "Threat Detection Engineer",
+      "description": "Expert detection engineer specializing in SIEM rule development, MITRE ATT&CK coverage mapping, threat hunting, alert tuning, and detection-as-code pipelines for security operations teams.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-threat-detection-engineer.md"
+    },
+    {
+      "id": "marketing/marketing-tiktok-strategist.md",
+      "division": "marketing",
+      "categoryLabel": "MARKETING",
+      "title": "TikTok Strategist",
+      "description": "Expert TikTok marketing specialist focused on viral content creation, algorithm optimization, and community building. Masters TikTok's unique culture and features for brand growth.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-tiktok-strategist.md"
+    },
+    {
+      "id": "testing/testing-tool-evaluator.md",
+      "division": "testing",
+      "categoryLabel": "TESTING",
+      "title": "Tool Evaluator",
+      "description": "Expert technology assessment specialist focused on evaluating, testing, and recommending tools, software, and platforms for business use and productivity optimization",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/testing/testing-tool-evaluator.md"
+    },
+    {
+      "id": "paid-media/paid-media-tracking-specialist.md",
+      "division": "paid-media",
+      "categoryLabel": "PAID MEDIA",
+      "title": "Tracking & Measurement Specialist",
+      "description": "Expert in conversion tracking architecture, tag management, and attribution modeling across Google Tag Manager, GA4, Google Ads, Meta CAPI, LinkedIn Insight Tag, and server-side implementations. Ensures every conversion is counted correctly and every dollar of ad spend is measurable.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/paid-media/paid-media-tracking-specialist.md"
+    },
+    {
+      "id": "product/product-trend-researcher.md",
+      "division": "product",
+      "categoryLabel": "PRODUCT",
+      "title": "Trend Researcher",
+      "description": "Expert market intelligence analyst specializing in identifying emerging trends, competitive analysis, and opportunity assessment. Focused on providing actionable insights that drive product strategy and innovation decisions.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/product/product-trend-researcher.md"
+    },
+    {
+      "id": "marketing/marketing-twitter-engager.md",
+      "division": "marketing",
+      "categoryLabel": "MARKETING",
+      "title": "Twitter Engager",
+      "description": "Expert Twitter marketing specialist focused on real-time engagement, thought leadership building, and community-driven growth. Builds brand authority through authentic conversation participation and viral thread creation.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-twitter-engager.md"
+    },
+    {
+      "id": "design/design-ui-designer.md",
+      "division": "design",
+      "categoryLabel": "DESIGN",
+      "title": "UI Designer",
+      "description": "Expert UI designer specializing in visual design systems, component libraries, and pixel-perfect interface creation. Creates beautiful, consistent, accessible user interfaces that enhance UX and reflect brand identity",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/design/design-ui-designer.md"
+    },
+    {
+      "id": "game-development/unity/unity-architect.md",
+      "division": "game-development",
+      "categoryLabel": "UNITY",
+      "title": "Unity Architect",
+      "description": "Data-driven modularity specialist - Masters ScriptableObjects, decoupled systems, and single-responsibility component design for scalable Unity projects",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/game-development/unity/unity-architect.md"
+    },
+    {
+      "id": "game-development/unity/unity-editor-tool-developer.md",
+      "division": "game-development",
+      "categoryLabel": "UNITY",
+      "title": "Unity Editor Tool Developer",
+      "description": "Unity editor automation specialist - Masters custom EditorWindows, PropertyDrawers, AssetPostprocessors, ScriptedImporters, and pipeline automation that saves teams hours per week",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/game-development/unity/unity-editor-tool-developer.md"
+    },
+    {
+      "id": "game-development/unity/unity-multiplayer-engineer.md",
+      "division": "game-development",
+      "categoryLabel": "UNITY",
+      "title": "Unity Multiplayer Engineer",
+      "description": "Networked gameplay specialist - Masters Netcode for GameObjects, Unity Gaming Services (Relay/Lobby), client-server authority, lag compensation, and state synchronization",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/game-development/unity/unity-multiplayer-engineer.md"
+    },
+    {
+      "id": "game-development/unity/unity-shader-graph-artist.md",
+      "division": "game-development",
+      "categoryLabel": "UNITY",
+      "title": "Unity Shader Graph Artist",
+      "description": "Visual effects and material specialist - Masters Unity Shader Graph, HLSL, URP/HDRP rendering pipelines, and custom pass authoring for real-time visual effects",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/game-development/unity/unity-shader-graph-artist.md"
+    },
+    {
+      "id": "game-development/unreal-engine/unreal-multiplayer-architect.md",
+      "division": "game-development",
+      "categoryLabel": "UNREAL ENGINE",
+      "title": "Unreal Multiplayer Architect",
+      "description": "Unreal Engine networking specialist - Masters Actor replication, GameMode/GameState architecture, server-authoritative gameplay, network prediction, and dedicated server setup for UE5",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/game-development/unreal-engine/unreal-multiplayer-architect.md"
+    },
+    {
+      "id": "game-development/unreal-engine/unreal-systems-engineer.md",
+      "division": "game-development",
+      "categoryLabel": "UNREAL ENGINE",
+      "title": "Unreal Systems Engineer",
+      "description": "Performance and hybrid architecture specialist - Masters C++/Blueprint continuum, Nanite geometry, Lumen GI, and Gameplay Ability System for AAA-grade Unreal Engine projects",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/game-development/unreal-engine/unreal-systems-engineer.md"
+    },
+    {
+      "id": "game-development/unreal-engine/unreal-technical-artist.md",
+      "division": "game-development",
+      "categoryLabel": "UNREAL ENGINE",
+      "title": "Unreal Technical Artist",
+      "description": "Unreal Engine visual pipeline specialist - Masters the Material Editor, Niagara VFX, Procedural Content Generation, and the art-to-engine pipeline for UE5 projects",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/game-development/unreal-engine/unreal-technical-artist.md"
+    },
+    {
+      "id": "game-development/unreal-engine/unreal-world-builder.md",
+      "division": "game-development",
+      "categoryLabel": "UNREAL ENGINE",
+      "title": "Unreal World Builder",
+      "description": "Open-world and environment specialist - Masters UE5 World Partition, Landscape, procedural foliage, HLOD, and large-scale level streaming for seamless open-world experiences",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/game-development/unreal-engine/unreal-world-builder.md"
+    },
+    {
+      "id": "design/design-ux-architect.md",
+      "division": "design",
+      "categoryLabel": "DESIGN",
+      "title": "UX Architect",
+      "description": "Technical architecture and UX specialist who provides developers with solid foundations, CSS systems, and clear implementation guidance",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/design/design-ux-architect.md"
+    },
+    {
+      "id": "design/design-ux-researcher.md",
+      "division": "design",
+      "categoryLabel": "DESIGN",
+      "title": "UX Researcher",
+      "description": "Expert user experience researcher specializing in user behavior analysis, usability testing, and data-driven design insights. Provides actionable research findings that improve product usability and user satisfaction",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/design/design-ux-researcher.md"
+    },
+    {
+      "id": "spatial-computing/visionos-spatial-engineer.md",
+      "division": "spatial-computing",
+      "categoryLabel": "SPATIAL COMPUTING",
+      "title": "visionOS Spatial Engineer",
+      "description": "Native visionOS spatial computing, SwiftUI volumetric interfaces, and Liquid Glass design implementation",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/spatial-computing/visionos-spatial-engineer.md"
+    },
+    {
+      "id": "design/design-visual-storyteller.md",
+      "division": "design",
+      "categoryLabel": "DESIGN",
+      "title": "Visual Storyteller",
+      "description": "Expert visual communication specialist focused on creating compelling visual narratives, multimedia content, and brand storytelling through design. Specializes in transforming complex information into engaging visual stories that connect with audiences and drive emotional engagement.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/design/design-visual-storyteller.md"
+    },
+    {
+      "id": "engineering/engineering-wechat-mini-program-developer.md",
+      "division": "engineering",
+      "categoryLabel": "ENGINEERING",
+      "title": "WeChat Mini Program Developer",
+      "description": "Expert WeChat Mini Program developer specializing in 小程序 development with WXML/WXSS/WXS, WeChat API integration, payment systems, subscription messaging, and the full WeChat ecosystem.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-wechat-mini-program-developer.md"
+    },
+    {
+      "id": "marketing/marketing-wechat-official-account.md",
+      "division": "marketing",
+      "categoryLabel": "MARKETING",
+      "title": "WeChat Official Account Manager",
+      "description": "Expert WeChat Official Account (OA) strategist specializing in content marketing, subscriber engagement, and conversion optimization. Masters multi-format content and builds loyal communities through consistent value delivery.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-wechat-official-account.md"
+    },
+    {
+      "id": "marketing/marketing-weibo-strategist.md",
+      "division": "marketing",
+      "categoryLabel": "MARKETING",
+      "title": "Weibo Strategist",
+      "description": "Full-spectrum operations expert for Sina Weibo, with deep expertise in trending topic mechanics, Super Topic community management, public sentiment monitoring, fan economy strategies, and Weibo advertising, helping brands achieve viral reach and sustained growth on China's leading public discourse platform.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-weibo-strategist.md"
+    },
+    {
+      "id": "design/design-whimsy-injector.md",
+      "division": "design",
+      "categoryLabel": "DESIGN",
+      "title": "Whimsy Injector",
+      "description": "Expert creative specialist focused on adding personality, delight, and playful elements to brand experiences. Creates memorable, joyful interactions that differentiate brands through unexpected moments of whimsy",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/design/design-whimsy-injector.md"
+    },
+    {
+      "id": "specialized/specialized-workflow-architect.md",
+      "division": "specialized",
+      "categoryLabel": "SPECIALIZED",
+      "title": "Workflow Architect",
+      "description": "Workflow design specialist who maps complete workflow trees for every system, user journey, and agent interaction — covering happy paths, all branch conditions, failure modes, recovery paths, handoff contracts, and observable states to produce build-ready specs that agents can implement against and QA can test against.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/specialized-workflow-architect.md"
+    },
+    {
+      "id": "testing/testing-workflow-optimizer.md",
+      "division": "testing",
+      "categoryLabel": "TESTING",
+      "title": "Workflow Optimizer",
+      "description": "Expert process improvement specialist focused on analyzing, optimizing, and automating workflows across all business functions for maximum productivity and efficiency",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/testing/testing-workflow-optimizer.md"
+    },
+    {
+      "id": "marketing/marketing-xiaohongshu-specialist.md",
+      "division": "marketing",
+      "categoryLabel": "MARKETING",
+      "title": "Xiaohongshu Specialist",
+      "description": "Expert Xiaohongshu marketing specialist focused on lifestyle content, trend-driven strategies, and authentic community engagement. Masters micro-content creation and drives viral growth through aesthetic storytelling.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-xiaohongshu-specialist.md"
+    },
+    {
+      "id": "spatial-computing/xr-cockpit-interaction-specialist.md",
+      "division": "spatial-computing",
+      "categoryLabel": "SPATIAL COMPUTING",
+      "title": "XR Cockpit Interaction Specialist",
+      "description": "Specialist in designing and developing immersive cockpit-based control systems for XR environments",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/spatial-computing/xr-cockpit-interaction-specialist.md"
+    },
+    {
+      "id": "spatial-computing/xr-immersive-developer.md",
+      "division": "spatial-computing",
+      "categoryLabel": "SPATIAL COMPUTING",
+      "title": "XR Immersive Developer",
+      "description": "Expert WebXR and immersive technology developer with specialization in browser-based AR/VR/XR applications",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/spatial-computing/xr-immersive-developer.md"
+    },
+    {
+      "id": "spatial-computing/xr-interface-architect.md",
+      "division": "spatial-computing",
+      "categoryLabel": "SPATIAL COMPUTING",
+      "title": "XR Interface Architect",
+      "description": "Spatial interaction designer and interface strategist for immersive AR/VR/XR environments",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/spatial-computing/xr-interface-architect.md"
+    },
+    {
+      "id": "marketing/marketing-zhihu-strategist.md",
+      "division": "marketing",
+      "categoryLabel": "MARKETING",
+      "title": "Zhihu Strategist",
+      "description": "Expert Zhihu marketing specialist focused on thought leadership, community credibility, and knowledge-driven engagement. Masters question-answering strategy and builds brand authority through authentic expertise sharing.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-zhihu-strategist.md"
+    },
+    {
+      "id": "specialized/zk-steward.md",
+      "division": "specialized",
+      "categoryLabel": "SPECIALIZED",
+      "title": "ZK Steward",
+      "description": "Knowledge-base steward in the spirit of Niklas Luhmann's Zettelkasten. Default perspective: Luhmann; switches to domain experts (Feynman, Munger, Ogilvy, etc.) by task. Enforces atomic notes, connectivity, and validation loops. Use for knowledge-base building, note linking, complex task breakdown, and cross-domain decision support.",
+      "githubUrl": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/zk-steward.md"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+// Phase 6: run persistence. Phase 7: User for auth and run ownership.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  runs      Run[]
+}
+
+model Run {
+  id             String   @id @default(cuid())
+  openclawRunId  String?
+  prompt         String
+  agentId        String?
+  conversationId String?
+  status         String   @default("submitted")
+  errorMessage   String?
+  lastCheckedAt  DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
