@@ -1,11 +1,58 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import type { SmartSuggestion } from "@/data/smartSuggestionsMock";
 import { getSmartSuggestionsMock } from "@/data/smartSuggestionsMock";
 import { JOB_FOCUS_EVENT } from "@/lib/jobFocusEvent";
 import { FeaturedSuggestionCard } from "@/components/dashboard/smartSuggestions/FeaturedSuggestionCard";
 import { SuggestionCard } from "@/components/dashboard/smartSuggestions/SuggestionCard";
+
+const SMART_SUGGESTIONS_COLLAPSED_KEY = "hireflow:smartSuggestionsCollapsed";
+
+const collapsedListeners = new Set<() => void>();
+
+function subscribeSmartSuggestionsCollapsed(cb: () => void) {
+  collapsedListeners.add(cb);
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === SMART_SUGGESTIONS_COLLAPSED_KEY || e.key === null) cb();
+  };
+  if (typeof window !== "undefined") {
+    window.addEventListener("storage", onStorage);
+  }
+  return () => {
+    collapsedListeners.delete(cb);
+    if (typeof window !== "undefined") {
+      window.removeEventListener("storage", onStorage);
+    }
+  };
+}
+
+function emitSmartSuggestionsCollapsed() {
+  collapsedListeners.forEach((cb) => cb());
+}
+
+function getSmartSuggestionsCollapsedSnapshot(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(SMART_SUGGESTIONS_COLLAPSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function getSmartSuggestionsCollapsedServerSnapshot(): boolean {
+  return false;
+}
+
+function setSmartSuggestionsCollapsedStored(next: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(SMART_SUGGESTIONS_COLLAPSED_KEY, next ? "1" : "0");
+  } catch {
+    // private mode, etc.
+  }
+  emitSmartSuggestionsCollapsed();
+}
 
 const PRIORITY_WEIGHT: Record<SmartSuggestion["priority"], number> = {
   high: 300,
@@ -53,23 +100,11 @@ export function SmartSuggestionsPanel() {
   const [focusedSuggestionId, setFocusedSuggestionId] = useState<string | null>(
     baseSuggestions[0]?.id ?? null,
   );
-  const [collapsed, setCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    try {
-      return window.localStorage.getItem("hireflow:smartSuggestionsCollapsed") === "1";
-    } catch {
-      // Ignore storage errors (private mode, etc.)
-      return false;
-    }
-  });
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem("hireflow:smartSuggestionsCollapsed", collapsed ? "1" : "0");
-    } catch {
-      // Ignore storage errors
-    }
-  }, [collapsed]);
+  const collapsed = useSyncExternalStore(
+    subscribeSmartSuggestionsCollapsed,
+    getSmartSuggestionsCollapsedSnapshot,
+    getSmartSuggestionsCollapsedServerSnapshot,
+  );
 
   const activeSuggestions = useMemo(() => {
     if (dismissedIds.size === 0) return baseSuggestions;
@@ -144,7 +179,7 @@ export function SmartSuggestionsPanel() {
             aria-label={collapsed ? "Expand Smart Suggestions" : "Collapse Smart Suggestions"}
             aria-expanded={!collapsed}
             aria-controls="smart-suggestions-body"
-            onClick={() => setCollapsed((v) => !v)}
+            onClick={() => setSmartSuggestionsCollapsedStored(!collapsed)}
             className="flex size-9 items-center justify-center rounded-full border border-neutral-200/70 bg-white/70 text-slate-700 shadow-sm transition hover:bg-white dark:border-slate-700/60 dark:bg-slate-900/55 dark:text-neutral-200 dark:hover:bg-slate-900/80"
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden stroke="currentColor" strokeWidth={2}>

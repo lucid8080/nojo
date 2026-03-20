@@ -7,13 +7,25 @@ import {
   type WorkspaceMessage,
   workspaceConversations,
 } from "@/data/workspaceChatMock";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChatComposer } from "./ChatComposer";
 import { ChatHeader } from "./ChatHeader";
 import { ConversationList } from "./ConversationList";
 import { JobContextPanel } from "./JobContextPanel";
 import { MessageFeed } from "./MessageFeed";
 import { RecentRunsList, type RecentRun } from "./RecentRunsList";
+
+type OpenClawSseEvent =
+  | { type: "ready"; sessionKey: string }
+  | {
+      type: "history";
+      entries: Array<{ role: "user" | "assistant"; text: string }>;
+    }
+  | { type: "delta"; runId: string; text: string }
+  | { type: "final"; runId: string; text: string; stopReason?: string }
+  | { type: "aborted"; runId: string; text?: string }
+  | { type: "status"; phase: string; detail?: string }
+  | { type: "error"; message: string; code?: string; runId?: string };
 
 export function WorkspaceShell() {
   const defaultId = workspaceConversations[0]?.id ?? null;
@@ -25,7 +37,16 @@ export function WorkspaceShell() {
   const [localMessagesByConversationId, setLocalMessagesByConversationId] = useState<
     Record<string, WorkspaceMessage[]>
   >({});
+  const [openClawMessagesByConversationId, setOpenClawMessagesByConversationId] = useState<
+    Record<string, WorkspaceMessage[]>
+  >({});
+  const [streamAssistant, setStreamAssistant] = useState<{
+    conversationId: string;
+    runId: string;
+    text: string;
+  } | null>(null);
   const [recentRuns, setRecentRuns] = useState<RecentRun[]>([]);
+  const eventSourceRef = useRef<EventSource | null>(null);
 
   const fetchRecentRuns = useCallback(async () => {
     try {
@@ -62,16 +83,157 @@ export function WorkspaceShell() {
     () => (selectedId ? getConversation(selectedId) ?? null : null),
     [selectedId],
   );
-  const messages = useMemo(
-    () => {
-      if (!selectedId) return [];
-      return [
-        ...getMessagesForConversation(selectedId),
-        ...(localMessagesByConversationId[selectedId] ?? []),
-      ];
-    },
-    [selectedId, localMessagesByConversationId],
-  );
+  const messages = useMemo(() => {
+    if (!selectedId) return [];
+    const streamExtra: WorkspaceMessage[] =
+      streamAssistant && streamAssistant.conversationId === selectedId && streamAssistant.text
+        ? [
+            {
+              id: `oc_stream_${streamAssistant.runId}`,
+              type: "agent",
+              createdAt: "Live",
+              agentId: conversation?.primaryAgentId ?? "agent",
+              body: streamAssistant.text,
+              agentStatus: "Working",
+            },
+          ]
+        : [];
+    return [
+      ...getMessagesForConversation(selectedId),
+      ...(openClawMessagesByConversationId[selectedId] ?? []),
+      ...(localMessagesByConversationId[selectedId] ?? []),
+      ...streamExtra,
+    ];
+  }, [
+    selectedId,
+    localMessagesByConversationId,
+    openClawMessagesByConversationId,
+    streamAssistant,
+    conversation?.primaryAgentId,
+  ]);
+
+  useEffect(() => {
+    setStreamAssistant(null);
+  }, [selectedId]);
+
+  useEffect(() => {
+    eventSourceRef.current?.close();
+    eventSourceRef.current = null;
+
+    if (!conversation) return;
+
+    const params = new URLSearchParams({
+      conversationId: conversation.id,
+      agentId: conversation.primaryAgentId,
+    });
+    const es = new EventSource(`/api/openclaw/chat/stream?${params.toString()}`);
+    eventSourceRef.current = es;
+
+    const onOpenClaw = (ev: MessageEvent) => {
+      let data: OpenClawSseEvent;
+      try {
+        data = JSON.parse(ev.data) as OpenClawSseEvent;
+      } catch {
+        return;
+      }
+
+      const cid = conversation.id;
+      const agentId = conversation.primaryAgentId;
+      const t = formatNowTime();
+
+      if (data.type === "history" && Array.isArray(data.entries)) {
+        const mapped: WorkspaceMessage[] = data.entries.map((e, i) =>
+          e.role === "user"
+            ? {
+                id: `oc_hist_u_${cid}_${i}`,
+                type: "user" as const,
+                createdAt: t,
+                body: e.text,
+              }
+            : {
+                id: `oc_hist_a_${cid}_${i}`,
+                type: "agent" as const,
+                createdAt: t,
+                agentId,
+                body: e.text,
+              },
+        );
+        setOpenClawMessagesByConversationId((prev) => ({ ...prev, [cid]: mapped }));
+        return;
+      }
+
+      if (data.type === "delta") {
+        setStreamAssistant({ conversationId: cid, runId: data.runId, text: data.text });
+        return;
+      }
+
+      if (data.type === "final") {
+        setStreamAssistant(null);
+        const agentMsg: WorkspaceMessage = {
+          id: `oc_final_${data.runId}`,
+          type: "agent",
+          createdAt: t,
+          agentId,
+          body: data.text,
+          agentStatus: "Completed",
+        };
+        setOpenClawMessagesByConversationId((prev) => ({
+          ...prev,
+          [cid]: [...(prev[cid] ?? []), agentMsg],
+        }));
+        return;
+      }
+
+      if (data.type === "aborted") {
+        setStreamAssistant(null);
+        const sys: WorkspaceMessage = {
+          id: `oc_abort_${data.runId}`,
+          type: "system",
+          createdAt: t,
+          body: data.text?.trim()
+            ? `OpenClaw run aborted · ${data.text.trim()}`
+            : "OpenClaw run aborted.",
+        };
+        setOpenClawMessagesByConversationId((prev) => ({
+          ...prev,
+          [cid]: [...(prev[cid] ?? []), sys],
+        }));
+        return;
+      }
+
+      if (data.type === "error") {
+        if (data.code === "BRIDGE_CONNECT") {
+          setToast(`OpenClaw: ${data.message}`);
+        }
+        const sys: WorkspaceMessage = {
+          id: uid(),
+          type: "system",
+          createdAt: t,
+          body: `OpenClaw error${data.code ? ` (${data.code})` : ""}: ${data.message}`,
+        };
+        setOpenClawMessagesByConversationId((prev) => ({
+          ...prev,
+          [cid]: [...(prev[cid] ?? []), sys],
+        }));
+        return;
+      }
+
+      if (data.type === "status") {
+        /* near-real-time tool/status noise — optional to surface */
+      }
+    };
+
+    es.addEventListener("openclaw", onOpenClaw as EventListener);
+    es.onerror = () => {
+      // EventSource auto-reconnects; avoid toast spam
+    };
+
+    return () => {
+      es.removeEventListener("openclaw", onOpenClaw as EventListener);
+      es.close();
+      if (eventSourceRef.current === es) eventSourceRef.current = null;
+    };
+  }, [conversation]);
   const jobContext = useMemo(
     () => (selectedId ? getJobContextForConversation(selectedId) : null),
     [selectedId],
@@ -116,17 +278,20 @@ export function WorkspaceShell() {
 
       setSubmitting(true);
       try {
-        const payload = {
-          prompt: trimmed,
-          agentId: conversation.primaryAgentId,
-          conversationId: conversation.id,
-          metadata: { jobTitle: conversation.jobTitle },
-        };
+        const idempotencyKey =
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `nojo_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 
-        const res = await fetch("/api/openclaw/runs", {
+        const res = await fetch("/api/openclaw/chat/send", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({
+            prompt: trimmed,
+            agentId: conversation.primaryAgentId,
+            conversationId: conversation.id,
+            idempotencyKey,
+          }),
         });
 
         if (res.status === 401) {
@@ -134,98 +299,48 @@ export function WorkspaceShell() {
           return;
         }
 
-        const json = (await res.json()) as
-          | {
-              success: boolean;
-              runId?: string;
-              status?: string;
-              message?: string;
-              error?: { message?: string };
-            }
-          | {
-              success?: boolean;
-              message?: string;
-              error?: { message?: string };
-              code?: string;
-              upstreamStatus?: number;
-            };
+        const json = (await res.json()) as {
+          success?: boolean;
+          message?: string;
+          code?: string;
+          sessionKey?: string;
+        };
 
         if (!res.ok || !json.success) {
           const message =
-            json && typeof json === "object"
-              ? "message" in json && typeof json.message === "string"
-                ? json.message
-                : json.error?.message
-              : undefined;
+            typeof json.message === "string" && json.message.trim() !== ""
+              ? json.message
+              : "OpenClaw chat request failed.";
 
-          const code =
-            json && typeof json === "object" && "code" in json && typeof json.code === "string"
-              ? json.code
-              : undefined;
+          const code = typeof json.code === "string" ? json.code : undefined;
 
-          const upstreamStatus =
-            json &&
-            typeof json === "object" &&
-            "upstreamStatus" in json &&
-            typeof json.upstreamStatus === "number"
-              ? json.upstreamStatus
-              : undefined;
-
-          const details = [
-            message ? String(message) : undefined,
-            code ? `code: ${code}` : undefined,
-            upstreamStatus != null ? `upstream: ${upstreamStatus}` : undefined,
-          ].filter(Boolean) as string[];
-          const detailsMessage = details.length ? details.join(" · ") : undefined;
+          const detailsMessage = [message, code ? `code: ${code}` : undefined]
+            .filter(Boolean)
+            .join(" · ");
 
           const sysMsg: WorkspaceMessage = {
             id: uid(),
             type: "system",
             createdAt,
-            body: `Submission failed${detailsMessage ? ` · ${detailsMessage}` : ""}`,
+            body: `OpenClaw chat failed · ${detailsMessage}`,
           };
           setLocalMessagesByConversationId((prev) => ({
             ...prev,
             [selectedId]: [...(prev[selectedId] ?? []), sysMsg],
           }));
 
-          setToast(
-            detailsMessage
-              ? `OpenClaw submit failed: ${detailsMessage}`
-              : "OpenClaw submit failed",
-          );
-          throw new Error(detailsMessage ?? "OpenClaw submit failed.");
+          setToast(`OpenClaw chat failed: ${detailsMessage}`);
+          throw new Error(detailsMessage);
         }
 
-        const runId = (json as { runId?: string }).runId as string | undefined;
-        const localId = (json as { id?: string }).id as string | undefined;
-        const status = (json as { status?: string }).status as string | undefined;
-        const idForCalls = runId ?? localId;
-        const sysMsg: WorkspaceMessage = {
-          id: uid(),
-          type: "system",
-          createdAt,
-          body: `Submitted to OpenClaw${
-            idForCalls ? ` · ${runId ? `runId: ${runId}` : `id: ${localId}`}` : ""
-          }${status ? ` · status: ${status}` : ""}`,
-          runId: idForCalls ?? undefined,
-          runStatus: status ?? undefined,
-        };
-        setLocalMessagesByConversationId((prev) => ({
-          ...prev,
-          [selectedId]: [...(prev[selectedId] ?? []), sysMsg],
-        }));
-
-        setToast(idForCalls ? `OpenClaw run submitted` : "OpenClaw run submitted");
-        fetchRecentRuns();
+        setToast("Sent to OpenClaw");
       } catch (err) {
-        // ChatComposer expects thrown errors on failure; we already appended a system message above.
         throw err;
       } finally {
         setSubmitting(false);
       }
     },
-    [conversation, selectedId, fetchRecentRuns],
+    [conversation, selectedId],
   );
 
   useEffect(() => {
