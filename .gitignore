@@ -10,6 +10,9 @@ web/build/
 # Ignore nested git directory (if any)
 web/.git/
 
+# Ignore renamed nested git directory backups (if detached/renamed)
+web/.git.bak_*/
+
 # Ignore environment files anywhere under web/
 web/.env*
 
