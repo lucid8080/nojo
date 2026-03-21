@@ -1,0 +1,40 @@
+{
+  "jobs": [
+    {
+      "jobId": "job-sample-1",
+      "name": "Morning brief",
+      "enabled": true,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 7 * * *",
+        "tz": "America/Los_Angeles"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "next-heartbeat",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "Summarize overnight updates."
+      },
+      "delivery": {
+        "mode": "announce",
+        "channel": "slack",
+        "to": "channel:C1234567890"
+      },
+      "agentId": "nojo-main"
+    },
+    {
+      "jobId": "job-sample-2",
+      "name": "One-shot reminder",
+      "enabled": true,
+      "schedule": {
+        "kind": "at",
+        "at": "2026-03-15T16:00:00Z"
+      },
+      "sessionTarget": "main",
+      "payload": {
+        "kind": "systemEvent",
+        "text": "Reminder: review cron docs."
+      }
+    }
+  ]
+}

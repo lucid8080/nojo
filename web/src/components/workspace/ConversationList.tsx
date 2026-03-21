@@ -1,5 +1,6 @@
 "use client";
 
+import { useAgentIdentity } from "@/components/workspace/AgentIdentityContext";
 import type { Conversation } from "@/data/workspaceChatMock";
 import { useMemo, useState } from "react";
 import { ConversationListItem } from "./ConversationListItem";
@@ -41,20 +42,22 @@ export function ConversationList({
   onNewJobRoom?: () => void;
 }) {
   const [query, setQuery] = useState("");
+  const { getAgent } = useAgentIdentity();
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return conversations;
-    return conversations.filter(
-      (c) =>
-        c.jobTitle.toLowerCase().includes(q) ||
-        c.agents.some(
-          (a) =>
-            a.name.toLowerCase().includes(q) ||
-            a.role.toLowerCase().includes(q),
-        ),
-    );
-  }, [conversations, query]);
+    return conversations.filter((c) => {
+      if (c.jobTitle.toLowerCase().includes(q)) return true;
+      return c.agents.some((a) => {
+        const m = getAgent(a.id) ?? a;
+        return (
+          m.name.toLowerCase().includes(q) ||
+          m.role.toLowerCase().includes(q)
+        );
+      });
+    });
+  }, [conversations, query, getAgent]);
 
   const sections = useMemo(() => {
     const active = filtered.filter(activeJobs);

@@ -3,12 +3,12 @@
 import type { TaskLogEntry } from "@/data/agentJobsMock";
 import { AvatarBubble } from "@/components/avatar/AvatarBubble";
 import { getAgentAvatarUrl } from "@/lib/agentAvatars";
-import { useEffect, useState } from "react";
+import { useResolvedAgentAccent } from "@/lib/nojo/useResolvedAgentAccent";
+import { useMemo } from "react";
 
-function agentInitials(name: string): string {
-  const parts = name.replace(/ Agent$/i, "").split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
+function effectiveActorKind(task: TaskLogEntry): NonNullable<TaskLogEntry["actorKind"]> {
+  if (task.actorKind) return task.actorKind;
+  return "agent";
 }
 
 function StateIcon({ state }: { state: TaskLogEntry["state"] }) {
@@ -40,7 +40,7 @@ function StateIcon({ state }: { state: TaskLogEntry["state"] }) {
         className="flex size-6 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400"
         aria-label="Blocked"
       >
-        <svg className="size-3.5" fill="currentColor" viewBox="0 0 24 24">
+        <svg className="size-3.5 fill-current" viewBox="0 0 24 24">
           <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
         </svg>
       </span>
@@ -54,6 +54,18 @@ function StateIcon({ state }: { state: TaskLogEntry["state"] }) {
       <svg className="size-3" fill="currentColor" viewBox="0 0 24 24">
         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" opacity={0.35} />
       </svg>
+    </span>
+  );
+}
+
+function SystemOrRunBadge({ kind }: { kind: "system" | "run" }) {
+  return (
+    <span
+      className="inline-flex size-[18px] shrink-0 items-center justify-center rounded-full bg-neutral-200 text-[9px] font-bold text-neutral-600 ring-1 ring-white/80 dark:bg-slate-700 dark:text-neutral-300 dark:ring-slate-900/80"
+      title={kind === "run" ? "OpenClaw run" : "System or timeline"}
+      aria-hidden
+    >
+      {kind === "run" ? "▸" : "•"}
     </span>
   );
 }
@@ -75,6 +87,9 @@ export function TaskLogItem({
           ? "border-rose-200/80 bg-rose-50/60 dark:border-rose-800/50 dark:bg-rose-950/20"
           : "border-neutral-100/90 bg-neutral-50/70 dark:border-slate-700/60 dark:bg-slate-800/50";
 
+  const kind = effectiveActorKind(task);
+  const showPersonAvatar = kind === "agent";
+
   return (
     <div
       className={`flex gap-3 rounded-xl border p-3 shadow-sm transition-[opacity,transform] dark:shadow-black/10 ${border} ${isNew ? "task-log-item-enter" : ""}`}
@@ -84,7 +99,15 @@ export function TaskLogItem({
         <p className="text-sm font-medium leading-snug text-slate-900 dark:text-neutral-100">{task.text}</p>
         <div className="mt-1.5 flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center rounded-md bg-white/80 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600 ring-1 ring-neutral-200/80 dark:bg-slate-900/60 dark:text-neutral-400 dark:ring-slate-600/80">
-            <TaskAgentAvatar agentName={task.agentName} />
+            {showPersonAvatar ? (
+              <TaskAgentAvatar
+                displayName={task.agentName}
+                avatarKey={task.participantId ?? task.agentName}
+                participantId={task.participantId}
+              />
+            ) : (
+              <SystemOrRunBadge kind={kind === "run" ? "run" : "system"} />
+            )}
             <span className="ml-1 font-normal normal-case tracking-normal text-slate-500 dark:text-neutral-500">
               {task.agentName.replace(/ Agent$/, "")}
             </span>
@@ -101,21 +124,38 @@ export function TaskLogItem({
   );
 }
 
-function TaskAgentAvatar({ agentName }: { agentName: string }) {
-  const [src, setSrc] = useState<string | null>(null);
-  useEffect(() => {
-    setSrc(getAgentAvatarUrl(agentName, { withDefault: true }));
-  }, [agentName]);
+function TaskAgentAvatar({
+  displayName,
+  avatarKey,
+  participantId,
+}: {
+  displayName: string;
+  /** Filename key for `/avatar` map */
+  avatarKey: string;
+  /** Canonical roster id when known (drives accent with View details) */
+  participantId?: string;
+}) {
+  const visual = useResolvedAgentAccent(participantId?.trim() || undefined);
+  const src = useMemo(
+    () => getAgentAvatarUrl(avatarKey, { withDefault: true }),
+    [avatarKey],
+  );
+
+  const category =
+    visual.kind === "palette" ? visual.categoryLabel : undefined;
+  const avatarAccent =
+    visual.kind === "palette" ? visual.avatarAccent : undefined;
 
   return (
-    <span className="inline-flex items-center gap-1">
-      <AvatarBubble
-        label={agentInitials(agentName)}
-        src={src}
-        size={18}
-        className="ring-1 ring-white/80 dark:ring-slate-900/80"
-      />
-      <span>{agentInitials(agentName)}</span>
-    </span>
+    <AvatarBubble
+      label={displayName}
+      accentKey={avatarKey}
+      src={src}
+      size={18}
+      title={displayName}
+      className="ring-1 ring-white/80 dark:ring-slate-900/80"
+      category={category}
+      avatarAccent={avatarAccent}
+    />
   );
 }

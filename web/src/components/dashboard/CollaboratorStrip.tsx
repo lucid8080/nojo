@@ -1,18 +1,29 @@
 "use client";
 
-import type { collaboratorAgents } from "@/data/dashboardSampleData";
 import { AvatarBubble } from "@/components/avatar/AvatarBubble";
 import { getAgentAvatarUrl } from "@/lib/agentAvatars";
+import type { CategoryColorName } from "@/lib/categoryColors";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 
-type Agent = (typeof collaboratorAgents)[number];
+/** Avatars in the header strip (demo collaborators or real workspace agent ids). */
+export type CollaboratorStripAgent =
+  | {
+      id: string;
+      initials: string;
+      categoryLabel?: string;
+      avatarAccent?: CategoryColorName;
+      badge?: number;
+    }
+  | { id: string; initials: string; isAdd: true };
+
+type NonAddStripAgent = Exclude<CollaboratorStripAgent, { isAdd: true }>;
 
 export function CollaboratorStrip({
   agents,
   onAgentClick,
 }: {
-  agents: readonly Agent[];
+  agents: readonly CollaboratorStripAgent[];
   /** When provided, agent avatars are clickable and this is called with the agent id (not called for the add button). */
   onAgentClick?: (agentId: string) => void;
 }) {
@@ -39,7 +50,7 @@ export function CollaboratorStrip({
           ) : (
             <CollaboratorBubble
               key={agent.id}
-              agent={agent as Exclude<Agent, { id: string; initials: string; isAdd: true }>}
+              agent={agent}
               onAgentClick={onAgentClick}
             />
           ),
@@ -53,22 +64,25 @@ function CollaboratorBubble({
   agent,
   onAgentClick,
 }: {
-  agent: Exclude<(typeof collaboratorAgents)[number], { id: string; initials: string; isAdd: true }>;
+  agent: NonAddStripAgent;
   onAgentClick?: (agentId: string) => void;
 }) {
-  const [src, setSrc] = useState<string | null>(null);
-
-  useEffect(() => {
-    setSrc(getAgentAvatarUrl(agent.id, { withDefault: true }));
-  }, [agent.id]);
+  const src = useMemo(
+    () => getAgentAvatarUrl(agent.id, { withDefault: true }),
+    [agent.id],
+  );
 
   const avatar = (
     <>
       <AvatarBubble
         label={agent.initials}
+        accentKey={agent.id}
         src={src}
         size={36}
         category={"categoryLabel" in agent ? agent.categoryLabel : undefined}
+        avatarAccent={
+          "avatarAccent" in agent ? agent.avatarAccent : undefined
+        }
       />
       {"badge" in agent && agent.badge != null ? (
         <span className="absolute -right-1 -top-1 flex min-w-4 items-center justify-center rounded-full bg-rose-400 px-1 text-xs font-bold leading-none text-white ring-2 ring-white dark:ring-slate-900">

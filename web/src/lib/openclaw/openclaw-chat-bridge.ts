@@ -8,7 +8,11 @@ export type OpenClawChatBridgeEvent =
   | { type: "ready"; sessionKey: string }
   | {
       type: "history";
-      entries: Array<{ role: "user" | "assistant"; text: string }>;
+      entries: Array<{
+        role: "user" | "assistant";
+        text: string;
+        idempotencyKey?: string;
+      }>;
     }
   | { type: "delta"; runId: string; text: string }
   | { type: "final"; runId: string; text: string; stopReason?: string }
@@ -59,7 +63,9 @@ function isChatEventPayload(p: unknown): p is {
   );
 }
 
-function normalizeHistoryPayload(data: unknown): Array<{ role: "user" | "assistant"; text: string }> {
+function normalizeHistoryPayload(
+  data: unknown,
+): Array<{ role: "user" | "assistant"; text: string; idempotencyKey?: string }> {
   if (!data || typeof data !== "object") return [];
   const root = data as Record<string, unknown>;
   const raw =
@@ -70,7 +76,7 @@ function normalizeHistoryPayload(data: unknown): Array<{ role: "user" | "assista
     (Array.isArray(data) ? data : null);
   if (!Array.isArray(raw)) return [];
 
-  const out: Array<{ role: "user" | "assistant"; text: string }> = [];
+  const out: Array<{ role: "user" | "assistant"; text: string; idempotencyKey?: string }> = [];
   for (const item of raw) {
     if (!item || typeof item !== "object") continue;
     const o = item as Record<string, unknown>;
@@ -87,19 +93,39 @@ function normalizeHistoryPayload(data: unknown): Array<{ role: "user" | "assista
     if (!role) continue;
     const text = extractAssistantText(o.message ?? o.text ?? o.content ?? o);
     if (!text.trim()) continue;
-    out.push({ role, text });
+
+    // Best-effort: upstream history may include an idempotency key, client message id,
+    // or other stable message identifier. We only use it for optimistic dedupe.
+    const idempotencyKey =
+      (typeof o.idempotencyKey === "string" && o.idempotencyKey.trim() !== ""
+        ? o.idempotencyKey.trim()
+        : undefined) ??
+      (typeof o.idempotency_key === "string" && o.idempotency_key.trim() !== ""
+        ? o.idempotency_key.trim()
+        : undefined) ??
+      (typeof o.idempotency === "string" && o.idempotency.trim() !== "" ? o.idempotency.trim() : undefined);
+
+    out.push({ role, text, idempotencyKey });
   }
   return out;
 }
 
 const bridgeByKey = new Map<string, OpenClawRoomBridge>();
 
+function requireAgentPart(agentId: string | undefined): string {
+  const agentPart = agentId?.trim() ?? "";
+  if (!agentPart) {
+    throw new Error("Missing agentId for OpenClaw room bridge.");
+  }
+  return agentPart;
+}
+
 export function getOpenClawRoomBridge(opts: {
   userId: string;
   conversationId: string;
   agentId?: string;
 }): OpenClawRoomBridge {
-  const agentPart = opts.agentId?.trim() || "default";
+  const agentPart = requireAgentPart(opts.agentId);
   const key = `${opts.userId}::${opts.conversationId}::${agentPart}`;
   let b = bridgeByKey.get(key);
   if (!b) {
@@ -114,7 +140,10 @@ export function releaseOpenClawRoomBridge(
   conversationId: string,
   agentId?: string,
 ): void {
-  const agentPart = agentId?.trim() || "default";
+  const agentPart = agentId?.trim() ?? "";
+  if (!agentPart) {
+    return;
+  }
   bridgeByKey.delete(`${userId}::${conversationId}::${agentPart}`);
 }
 

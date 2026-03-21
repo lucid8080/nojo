@@ -1,15 +1,38 @@
 "use client";
 
 import { AvatarBubble } from "@/components/avatar/AvatarBubble";
-import {
-  getScheduledTasksForMonth,
-  groupTasksByDayKey,
-  localDayKey,
-  type ScheduledAgentTask,
-  type ScheduledAgentTaskState,
-} from "@/data/agentScheduledTasksMock";
+import { NOJO_WORKSPACE_AGENTS } from "@/data/nojoWorkspaceRoster";
 import { getAgentAvatarUrl } from "@/lib/agentAvatars";
-import { useCallback, useMemo, useState, useEffect } from "react";
+import { useHydratedTeamAgents } from "@/lib/nojo/useHydratedTeamAgents";
+import type { OperationalScheduledJob } from "@/lib/openclaw/openClawCronTypes";
+import {
+  groupOperationalJobsByDayKey,
+  localDayKey,
+} from "@/lib/scheduling/scheduleCalendarUtils";
+import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+function userFriendlyScheduleError(raw: string): string {
+  const m = raw.trim().toLowerCase();
+  if (!m) return "Something went wrong. Please try again.";
+  if (m.includes("unauthorized") || m.includes("sign in")) {
+    return "Sign in to see your scheduled jobs.";
+  }
+  if (m.includes("gateway") && m.includes("unavailable")) {
+    return "We couldn’t load schedules right now. Try again in a moment.";
+  }
+  if (m.includes("no openclaw cron jobs file") || m.includes("cron jobs file found")) {
+    return "No schedule data is available yet.";
+  }
+  if (m.includes("network") || m.includes("fetch")) {
+    return "Couldn’t connect. Check your network and try again.";
+  }
+  return "Something went wrong loading schedules. Please try again.";
+}
+
+function formatLastUpdated(d: Date): string {
+  return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
@@ -19,72 +42,112 @@ function agentInitials(name: string): string {
   return name.slice(0, 2).toUpperCase();
 }
 
-function ScheduleStateIcon({ state }: { state?: ScheduledAgentTaskState }) {
-  if (state === "running") {
-    return (
-      <span
-        className="relative flex size-6 shrink-0 items-center justify-center rounded-full bg-sky-100 dark:bg-sky-900/40"
-        aria-label="Running"
-      >
-        <span className="absolute size-3.5 animate-pulse rounded-full bg-sky-500/80 dark:bg-sky-400/80" />
-      </span>
-    );
-  }
-  return (
-    <span
-      className="flex size-6 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-neutral-500 dark:bg-slate-700 dark:text-neutral-400"
-      aria-label="Queued"
-    >
-      <svg className="size-3" fill="currentColor" viewBox="0 0 24 24">
-        <path
-          d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
-          opacity={0.35}
-        />
-      </svg>
-    </span>
-  );
+function formatWhen(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 }
 
-function ScheduleTaskRow({ task }: { task: ScheduledAgentTask }) {
-  const [src, setSrc] = useState<string | null>(null);
-  useEffect(() => {
-    setSrc(getAgentAvatarUrl(task.agentName, { withDefault: true }));
-  }, [task.agentName]);
-
-  const timeStr = useMemo(() => {
-    const d = new Date(task.scheduledAt);
-    return d.toLocaleTimeString(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-    });
-  }, [task.scheduledAt]);
+function ScheduleJobRow({
+  job,
+  resolveAgentLabel,
+}: {
+  job: OperationalScheduledJob;
+  resolveAgentLabel: (agentId: string | null) => string;
+}) {
+  const label = resolveAgentLabel(job.targetAgentId);
+  const src = useMemo(
+    () => getAgentAvatarUrl(label, { withDefault: true }),
+    [label],
+  );
 
   return (
     <div className="flex gap-4 rounded-xl border border-neutral-100/90 bg-neutral-50/70 p-4 shadow-sm dark:border-slate-700/60 dark:bg-slate-800/50 dark:shadow-black/10">
-      <ScheduleStateIcon state={task.state} />
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium leading-snug text-slate-900 dark:text-neutral-100">
-          {task.taskTitle}
-        </p>
-        <p className="mt-0.5 text-xs text-slate-500 dark:text-neutral-500">
-          {task.jobTitle}
-        </p>
-        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="min-w-0 text-sm font-semibold leading-snug text-slate-900 dark:text-neutral-100">
+            {job.name}
+          </p>
+          <span
+            className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+              job.enabled
+                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
+                : "bg-neutral-200 text-neutral-600 dark:bg-slate-700 dark:text-neutral-400"
+            }`}
+          >
+            {job.enabled ? "enabled" : "disabled"}
+          </span>
+          {job.calendarPartial ? (
+            <span className="text-[10px] font-medium text-amber-700 dark:text-amber-300">
+              Limited preview
+            </span>
+          ) : null}
+        </div>
+
+        <p className="font-mono text-xs text-slate-700 dark:text-neutral-300">{job.scheduleDisplay}</p>
+
+        <p className="text-xs text-slate-600 dark:text-neutral-400">{job.summary}</p>
+
+        <dl className="grid grid-cols-1 gap-x-4 gap-y-1 text-[11px] text-slate-500 dark:text-neutral-500 sm:grid-cols-2">
+          <div>
+            <dt className="font-medium text-slate-400 dark:text-neutral-600">Next run</dt>
+            <dd>{formatWhen(job.nextRunAt)}</dd>
+          </div>
+          <div>
+            <dt className="font-medium text-slate-400 dark:text-neutral-600">Last run</dt>
+            <dd>{formatWhen(job.lastRunAt)}</dd>
+          </div>
+          <div>
+            <dt className="font-medium text-slate-400 dark:text-neutral-600">Session</dt>
+            <dd className="truncate">{job.sessionTarget ?? "—"}</dd>
+          </div>
+          <div>
+            <dt className="font-medium text-slate-400 dark:text-neutral-600">Wake</dt>
+            <dd>{job.wakeMode ?? "—"}</dd>
+          </div>
+        </dl>
+
+        {job.deliverySummary ? (
+          <p className="text-[11px] text-slate-500 dark:text-neutral-500">
+            <span className="font-medium text-slate-400 dark:text-neutral-600">Delivery: </span>
+            {job.deliverySummary}
+          </p>
+        ) : null}
+
+        <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-1 rounded-md bg-white/80 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600 ring-1 ring-neutral-200/80 dark:bg-slate-900/60 dark:text-neutral-400 dark:ring-slate-600/80">
             <AvatarBubble
-              label={agentInitials(task.agentName)}
+              label={agentInitials(label)}
               src={src}
               size={18}
               className="ring-1 ring-white/80 dark:ring-slate-900/80"
             />
             <span className="font-normal normal-case tracking-normal text-slate-500 dark:text-neutral-500">
-              {task.agentName.replace(/ Agent$/, "")}
+              {job.targetAgentId ? label : "Default agent"}
             </span>
           </span>
-          <span className="text-[10px] font-medium text-slate-400 dark:text-neutral-500">
-            {timeStr}
+          <span className="text-[10px] text-slate-400 dark:text-neutral-600">
+            {job.scheduleKind === "one_time"
+              ? "One-time"
+              : job.scheduleKind === "interval"
+                ? "Interval"
+                : job.scheduleKind === "recurring"
+                  ? "Recurring"
+                  : "Schedule"}
           </span>
         </div>
+
+        {job.warnings.length > 0 ? (
+          <ul className="list-inside list-disc text-[10px] text-amber-800 dark:text-amber-200/90">
+            {job.warnings.map((w) => (
+              <li key={w}>{w}</li>
+            ))}
+          </ul>
+        ) : null}
       </div>
     </div>
   );
@@ -116,13 +179,123 @@ function buildMonthGridCells(year: number, monthIndex: number): {
   return cells;
 }
 
+type CronJobsApiOk = {
+  success: true;
+  /** Canonical: live gateway API. Mirror: local JSON when gateway failed. */
+  cronDataSource?: "openclaw_gateway" | "disk_mirror";
+  /** Gateway URL or filesystem path, depending on source. */
+  sourceDetail?: string;
+  /** @deprecated Prefer sourceDetail; kept for older responses. */
+  sourcePath?: string;
+  jobs: OperationalScheduledJob[];
+  warnings: string[];
+  year: number;
+  monthIndex: number;
+};
+
+type CronJobsApiErr = {
+  success: false;
+  message: string;
+  cronDataSource?: "openclaw_gateway" | "disk_mirror";
+  sourceDetail?: string;
+  sourcePath?: string;
+  jobs?: OperationalScheduledJob[];
+  warnings?: string[];
+  year?: number;
+  monthIndex?: number;
+};
+
 export function AgentScheduleCalendar() {
+  const searchParams = useSearchParams();
+  const diagnostics = useMemo(
+    () =>
+      process.env.NEXT_PUBLIC_NOJO_SCHEDULES_DEBUG === "true" ||
+      searchParams.get("schedulesDebug") === "1" ||
+      searchParams.get("debug") === "schedules",
+    [searchParams],
+  );
+
   const today = useMemo(() => new Date(), []);
   const [year, setYear] = useState(today.getFullYear());
   const [monthIndex, setMonthIndex] = useState(today.getMonth());
-  const [selectedKey, setSelectedKey] = useState<string | null>(() =>
-    localDayKey(today),
+  const [selectedKey, setSelectedKey] = useState<string | null>(() => localDayKey(today));
+  const [jobs, setJobs] = useState<OperationalScheduledJob[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
+  const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null);
+  const [sourcePath, setSourcePath] = useState<string | null>(null);
+  const [cronDataSource, setCronDataSource] = useState<
+    "openclaw_gateway" | "disk_mirror" | null
+  >(null);
+  const [globalWarnings, setGlobalWarnings] = useState<string[]>([]);
+
+  const teamAgents = useHydratedTeamAgents(NOJO_WORKSPACE_AGENTS);
+  const resolveAgentLabel = useCallback(
+    (agentId: string | null) => {
+      if (!agentId) return "Agent";
+      return teamAgents.find((a) => a.id === agentId)?.name ?? agentId;
+    },
+    [teamAgents],
   );
+
+  const fetchJobs = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    setErrorDetail(null);
+    try {
+      const res = await fetch(
+        `/api/openclaw/cron-jobs?year=${year}&month=${monthIndex}`,
+        { cache: "no-store" },
+      );
+      if (res.status === 401) {
+        setError("Sign in to see your scheduled jobs.");
+        setJobs([]);
+        setSourcePath(null);
+        setCronDataSource(null);
+        setGlobalWarnings([]);
+        setLastFetchedAt(null);
+        return;
+      }
+      const json = (await res.json()) as CronJobsApiOk | CronJobsApiErr;
+      const detail =
+        typeof json.sourceDetail === "string" && json.sourceDetail.trim() !== ""
+          ? json.sourceDetail
+          : typeof json.sourcePath === "string"
+            ? json.sourcePath
+            : null;
+      setSourcePath(detail);
+      setCronDataSource(
+        json.cronDataSource === "openclaw_gateway" || json.cronDataSource === "disk_mirror"
+          ? json.cronDataSource
+          : null,
+      );
+      setGlobalWarnings(Array.isArray(json.warnings) ? json.warnings : []);
+      if (!json.success) {
+        const raw = json.message ?? "";
+        setErrorDetail(raw.trim() ? raw : null);
+        setError(userFriendlyScheduleError(raw));
+        setJobs([]);
+        setLastFetchedAt(null);
+        return;
+      }
+      setJobs(Array.isArray(json.jobs) ? json.jobs : []);
+      setError(null);
+      setErrorDetail(null);
+      setLastFetchedAt(new Date());
+    } catch {
+      setErrorDetail("Network error");
+      setError("Couldn’t connect. Check your network and try again.");
+      setJobs([]);
+      setLastFetchedAt(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [year, monthIndex]);
+
+  useEffect(() => {
+    void fetchJobs();
+  }, [fetchJobs]);
 
   useEffect(() => {
     const n = new Date();
@@ -133,11 +306,7 @@ export function AgentScheduleCalendar() {
     }
   }, [year, monthIndex]);
 
-  const tasks = useMemo(
-    () => getScheduledTasksForMonth(year, monthIndex),
-    [year, monthIndex],
-  );
-  const byDay = useMemo(() => groupTasksByDayKey(tasks), [tasks]);
+  const byDay = useMemo(() => groupOperationalJobsByDayKey(jobs), [jobs]);
   const cells = useMemo(
     () => buildMonthGridCells(year, monthIndex),
     [year, monthIndex],
@@ -168,19 +337,61 @@ export function AgentScheduleCalendar() {
     setSelectedKey(localDayKey(n));
   }, []);
 
-  const selectedTasks: ScheduledAgentTask[] = selectedKey
+  const selectedJobs: OperationalScheduledJob[] = selectedKey
     ? (byDay.get(selectedKey) ?? [])
     : [];
 
   const todayKey = localDayKey(today);
 
+  const showOfflineNotice =
+    !diagnostics &&
+    !loading &&
+    !error &&
+    cronDataSource === "disk_mirror";
+
   return (
     <div className="flex flex-col gap-10 xl:flex-row xl:items-start xl:gap-12 2xl:gap-16">
       <div className="min-w-0 flex-1">
+        {diagnostics && sourcePath ? (
+          <p className="mb-3 text-[11px] text-slate-500 dark:text-neutral-500">
+            <span className="font-medium text-slate-600 dark:text-neutral-400">
+              {cronDataSource === "openclaw_gateway"
+                ? "Source (OpenClaw gateway, canonical): "
+                : cronDataSource === "disk_mirror"
+                  ? "Source (local mirror, fallback): "
+                  : "Source: "}
+            </span>
+            <code className="break-all rounded bg-neutral-100/90 px-1 py-0.5 text-[10px] dark:bg-slate-800/80">
+              {sourcePath}
+            </code>
+          </p>
+        ) : null}
+
+        {diagnostics && globalWarnings.length > 0 ? (
+          <ul className="mb-3 list-inside list-disc text-[11px] text-amber-800 dark:text-amber-200/90">
+            {globalWarnings.map((w) => (
+              <li key={w}>{w}</li>
+            ))}
+          </ul>
+        ) : null}
+
+        {showOfflineNotice ? (
+          <p className="mb-3 rounded-lg border border-sky-200/80 bg-sky-50/90 px-3 py-2 text-[12px] text-sky-950 dark:border-sky-800/50 dark:bg-sky-950/25 dark:text-sky-100">
+            Showing a saved copy of your schedule. Details may refresh when we reconnect.
+          </p>
+        ) : null}
+
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-            {monthLabel(year, monthIndex)}
-          </h2>
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+              {monthLabel(year, monthIndex)}
+            </h2>
+            {lastFetchedAt && !loading ? (
+              <p className="mt-1 text-xs text-slate-500 dark:text-neutral-500">
+                Last updated {formatLastUpdated(lastFetchedAt)}
+              </p>
+            ) : null}
+          </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -211,6 +422,20 @@ export function AgentScheduleCalendar() {
             </button>
           </div>
         </div>
+
+        {loading ? (
+          <p className="text-sm text-slate-500 dark:text-neutral-400">Loading schedules…</p>
+        ) : null}
+        {error ? (
+          <div className="mb-4 rounded-lg border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-950 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-100">
+            <p>{error}</p>
+            {diagnostics && errorDetail ? (
+              <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-all rounded bg-amber-100/80 p-2 text-[10px] text-amber-950 dark:bg-amber-900/40 dark:text-amber-50">
+                {errorDetail}
+              </pre>
+            ) : null}
+          </div>
+        ) : null}
 
         <div
           className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white/90 shadow-lg shadow-slate-900/5 dark:border-slate-700/90 dark:bg-slate-900/90 dark:shadow-black/20"
@@ -275,15 +500,19 @@ export function AgentScheduleCalendar() {
               })
             : "Select a day"}
         </h3>
-        {selectedTasks.length === 0 ? (
+        {selectedJobs.length === 0 ? (
           <p className="rounded-xl border border-dashed border-neutral-200 bg-neutral-50/50 px-5 py-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800/30 dark:text-neutral-500">
-            No agent tasks scheduled for this day.
+            {loading
+              ? "Loading…"
+              : error
+                ? "Schedules aren’t available until the issue above is resolved."
+                : "No runs scheduled for this day."}
           </p>
         ) : (
-          <ul className="flex flex-col gap-4" aria-label="Scheduled tasks for selected day">
-            {selectedTasks.map((task) => (
-              <li key={task.id}>
-                <ScheduleTaskRow task={task} />
+          <ul className="flex flex-col gap-4" aria-label="Scheduled jobs for selected day">
+            {selectedJobs.map((job) => (
+              <li key={job.id}>
+                <ScheduleJobRow job={job} resolveAgentLabel={resolveAgentLabel} />
               </li>
             ))}
           </ul>

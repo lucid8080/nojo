@@ -1,0 +1,60 @@
+import { defaultSchema } from "rehype-sanitize";
+import type { Schema } from "hast-util-sanitize";
+
+/** Allow highlight.js + language-* classes on code blocks after rehype-highlight. */
+const hljsSpanClasses = [
+  "hljs-addition",
+  "hljs-attr",
+  "hljs-attribute",
+  "hljs-built_in",
+  "hljs-bullet",
+  "hljs-char",
+  "hljs-code",
+  "hljs-comment",
+  "hljs-deletion",
+  "hljs-doctag",
+  "hljs-emphasis",
+  "hljs-formula",
+  "hljs-keyword",
+  "hljs-link",
+  "hljs-literal",
+  "hljs-meta",
+  "hljs-name",
+  "hljs-number",
+  "hljs-operator",
+  "hljs-params",
+  "hljs-property",
+  "hljs-punctuation",
+  "hljs-quote",
+  "hljs-regexp",
+  "hljs-section",
+  "hljs-selector-attr",
+  "hljs-selector-class",
+  "hljs-selector-id",
+  "hljs-selector-pseudo",
+  "hljs-selector-tag",
+  "hljs-string",
+  "hljs-strong",
+  "hljs-subst",
+  "hljs-symbol",
+  "hljs-tag",
+  "hljs-template-tag",
+  "hljs-template-variable",
+  "hljs-title",
+  "hljs-type",
+  "hljs-variable",
+];
+
+export const skillMarkdownSanitizeSchema: Schema = {
+  ...defaultSchema,
+  attributes: {
+    ...defaultSchema.attributes,
+    code: [
+      ...(defaultSchema.attributes?.code ?? []),
+      "className",
+      "class",
+    ],
+    pre: [...(defaultSchema.attributes?.pre ?? []), "className", "class"],
+    span: [...(defaultSchema.attributes?.span ?? []), "className", "class", ...hljsSpanClasses],
+  },
+};

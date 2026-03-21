@@ -124,18 +124,18 @@ export function SmartSuggestionsPanel() {
   const featured = orderedSuggestions[0];
   const list = orderedSuggestions.slice(1);
 
-  function focusJob(jobId: string) {
+  function focusConversation(conversationId: string) {
     if (typeof window === "undefined") return;
     window.dispatchEvent(
       new CustomEvent(JOB_FOCUS_EVENT, {
-        detail: { jobId },
+        detail: { conversationId },
       }),
     );
   }
 
   function onSuggestionAction(s: SmartSuggestion) {
     setFocusedSuggestionId(s.id);
-    focusJob(s.relatedJobId);
+    focusConversation(s.relatedConversationId);
   }
 
   function dismissSuggestion(id: string) {

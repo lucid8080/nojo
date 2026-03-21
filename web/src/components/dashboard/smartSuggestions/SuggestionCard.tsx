@@ -51,7 +51,7 @@ export function SuggestionCard({
             <p className="mt-2 truncate text-[11px] font-semibold text-slate-500 dark:text-slate-400">
               Related:{" "}
               <span className="font-semibold text-slate-700 dark:text-neutral-200">
-                {suggestion.relatedJob}
+                {suggestion.relatedThread}
               </span>
             </p>
           ) : null}

@@ -1,3 +1,12 @@
+/**
+ * Shared seed for Agent Workspace (inbox, messages, job context) and the dashboard work board.
+ * Replace with persisted conversation APIs when available.
+ */
+import {
+  NOJO_WORKSPACE_AGENTS,
+  type TeamWorkspaceRosterEntry,
+} from "@/data/nojoWorkspaceRoster";
+
 /** Agent / conversation status shown in workspace UI */
 export type WorkspaceStatus =
   | "Thinking"
@@ -5,14 +14,7 @@ export type WorkspaceStatus =
   | "Waiting for Reply"
   | "Completed";
 
-export type WorkspaceAgent = {
-  id: string;
-  name: string;
-  initials: string;
-  role: string;
-  /** Tailwind bg class fragment e.g. "bg-violet-500" */
-  avatarClass: string;
-};
+export type WorkspaceAgent = TeamWorkspaceRosterEntry;
 
 export type Conversation = {
   id: string;
@@ -30,11 +32,18 @@ export type Conversation = {
 export type MessageBase = {
   id: string;
   createdAt: string;
+  /**
+   * Stable client-side ordering key for timeline rendering.
+   * Used to keep user/assistant messages interleaved chronologically.
+   */
+  sequence?: number;
 };
 
 export type UserMessage = MessageBase & {
   type: "user";
   body: string;
+  /** Optional idempotency key for best-effort optimistic reconciliation. */
+  idempotencyKey?: string;
 };
 
 export type AgentMessage = MessageBase & {
@@ -124,43 +133,7 @@ export type JobContext = {
   deliverables: ContextDeliverable[];
 };
 
-export const workspaceAgents: WorkspaceAgent[] = [
-  {
-    id: "nova",
-    name: "Nova Chen",
-    initials: "NC",
-    role: "Content Strategist",
-    avatarClass: "bg-violet-500",
-  },
-  {
-    id: "kite",
-    name: "Kite Park",
-    initials: "KP",
-    role: "Research Analyst",
-    avatarClass: "bg-sky-500",
-  },
-  {
-    id: "mira",
-    name: "Mira Okonkwo",
-    initials: "MO",
-    role: "QA & Compliance",
-    avatarClass: "bg-emerald-500",
-  },
-  {
-    id: "ellis",
-    name: "Ellis Rowe",
-    initials: "ER",
-    role: "Pipeline Engineer",
-    avatarClass: "bg-amber-500",
-  },
-  {
-    id: "juno",
-    name: "Juno Blake",
-    initials: "JB",
-    role: "Support Triage",
-    avatarClass: "bg-rose-500",
-  },
-];
+export const workspaceAgents: WorkspaceAgent[] = NOJO_WORKSPACE_AGENTS;
 
 function agent(id: string): WorkspaceAgent {
   const a = workspaceAgents.find((x) => x.id === id);
@@ -185,7 +158,7 @@ export const primaryConversationMessages: WorkspaceMessage[] = [
   {
     id: "m3",
     type: "agent",
-    agentId: "kite",
+    agentId: "nojo-sales",
     createdAt: "Today 9:05 AM",
     agentStatus: "Thinking",
     body: "On it. I'll pull top 5 competitor homepages + G2 positioning blurbs, then summarize themes in a table.",
@@ -198,12 +171,12 @@ export const primaryConversationMessages: WorkspaceMessage[] = [
     command: "targets: acme-corp.com, rival.io, zenith-saas.com …",
     outputSnippet: "200 OK · 5 pages · 42.1k tokens summarized",
     success: true,
-    agentId: "kite",
+    agentId: "nojo-sales",
   },
   {
     id: "m5",
     type: "agent",
-    agentId: "kite",
+    agentId: "nojo-sales",
     createdAt: "Today 9:18 AM",
     agentStatus: "Working",
     body: "Research pass done. Key pattern: everyone leads with “AI-native” and security certs; few mention implementation time. I'm handing off to Nova for narrative.",
@@ -217,7 +190,7 @@ export const primaryConversationMessages: WorkspaceMessage[] = [
   {
     id: "m7",
     type: "agent",
-    agentId: "nova",
+    agentId: "nojo-content",
     createdAt: "Today 9:22 AM",
     agentStatus: "Working",
     body: "Drafting v1: hero = speed-to-value + human-in-the-loop. Pulling 3 bullets from Kite's table into the competitive section.",
@@ -230,7 +203,7 @@ export const primaryConversationMessages: WorkspaceMessage[] = [
     command: "template: enterprise_2pager · tone: confident-calm",
     outputSnippet: "Generated 1,240 words · 2 charts placeholders",
     success: true,
-    agentId: "nova",
+    agentId: "nojo-content",
   },
   {
     id: "m9",
@@ -239,7 +212,7 @@ export const primaryConversationMessages: WorkspaceMessage[] = [
     fileName: "Q2_Enterprise_Positioning_v1.docx",
     fileType: "docx",
     version: "v1.0 — internal draft",
-    agentId: "nova",
+    agentId: "nojo-content",
   },
   {
     id: "m10",
@@ -250,7 +223,7 @@ export const primaryConversationMessages: WorkspaceMessage[] = [
   {
     id: "m11",
     type: "agent",
-    agentId: "mira",
+    agentId: "nojo-main",
     createdAt: "Today 9:42 AM",
     agentStatus: "Thinking",
     body: "Scanning claims against our approved fact sheet (FY24). One superlative in paragraph 2 needs a citation or softening.",
@@ -258,7 +231,7 @@ export const primaryConversationMessages: WorkspaceMessage[] = [
   {
     id: "m12",
     type: "agent",
-    agentId: "mira",
+    agentId: "nojo-main",
     createdAt: "Today 9:51 AM",
     agentStatus: "Waiting for Reply",
     body: "Flagged: “fastest implementation in category” — suggest replacing with “median go-live under 30 days (n=12 customers).” Awaiting your call on tone.",
@@ -272,7 +245,7 @@ export const primaryConversationMessages: WorkspaceMessage[] = [
   {
     id: "m14",
     type: "agent",
-    agentId: "nova",
+    agentId: "nojo-content",
     createdAt: "Today 10:05 AM",
     agentStatus: "Working",
     body: "Updated copy and exported v1.1. Pushing approval card for publish to Notion + sales deck.",
@@ -284,7 +257,7 @@ export const primaryConversationMessages: WorkspaceMessage[] = [
     title: "Publish Q2 positioning pack",
     description:
       "Approve release of Q2_Enterprise_Positioning_v1.1.docx to shared drive and #sales-announcements.",
-    requesterAgentId: "nova",
+    requesterAgentId: "nojo-content",
   },
 ];
 
@@ -292,8 +265,8 @@ export const workspaceConversations: Conversation[] = [
   {
     id: "c1",
     jobTitle: "Q2 Enterprise positioning refresh",
-    agents: [agent("nova"), agent("kite"), agent("mira")],
-    primaryAgentId: "nova",
+    agents: [agent("nojo-content"), agent("nojo-sales"), agent("nojo-main")],
+    primaryAgentId: "nojo-content",
     status: "Waiting for Reply",
     lastPreview: "Mira: Flagged superlative — awaiting your call on tone…",
     unreadCount: 2,
@@ -303,8 +276,8 @@ export const workspaceConversations: Conversation[] = [
   {
     id: "c2",
     jobTitle: "Pipeline health weekly digest",
-    agents: [agent("ellis")],
-    primaryAgentId: "ellis",
+    agents: [agent("nojo-builder")],
+    primaryAgentId: "nojo-builder",
     status: "Working",
     lastPreview: "Ellis: Aggregating Snowflake + HubSpot deltas…",
     unreadCount: 0,
@@ -314,8 +287,8 @@ export const workspaceConversations: Conversation[] = [
   {
     id: "c3",
     jobTitle: "Support inbox triage — Tier 1",
-    agents: [agent("juno")],
-    primaryAgentId: "juno",
+    agents: [agent("nojo-support")],
+    primaryAgentId: "nojo-support",
     status: "Thinking",
     lastPreview: "Juno: 6 threads need human escalation…",
     unreadCount: 4,
@@ -325,8 +298,8 @@ export const workspaceConversations: Conversation[] = [
   {
     id: "c4",
     jobTitle: "Agent hiring brief — SDR bot",
-    agents: [agent("nova"), agent("kite")],
-    primaryAgentId: "kite",
+    agents: [agent("nojo-content"), agent("nojo-sales")],
+    primaryAgentId: "nojo-sales",
     status: "Working",
     lastPreview: "You: Can we add Spanish coverage?",
     unreadCount: 1,
@@ -336,8 +309,8 @@ export const workspaceConversations: Conversation[] = [
   {
     id: "c5",
     jobTitle: "Brand voice guidelines update",
-    agents: [agent("nova")],
-    primaryAgentId: "nova",
+    agents: [agent("nojo-content")],
+    primaryAgentId: "nojo-content",
     status: "Completed",
     lastPreview: "Nova: Final PDF uploaded to brand portal.",
     unreadCount: 0,
@@ -347,8 +320,8 @@ export const workspaceConversations: Conversation[] = [
   {
     id: "c6",
     jobTitle: "SOC2 evidence collection",
-    agents: [agent("mira"), agent("ellis")],
-    primaryAgentId: "mira",
+    agents: [agent("nojo-main"), agent("nojo-builder")],
+    primaryAgentId: "nojo-main",
     status: "Completed",
     lastPreview: "Mira: Audit pack zipped · ticket CLOSED.",
     unreadCount: 0,
@@ -358,8 +331,8 @@ export const workspaceConversations: Conversation[] = [
   {
     id: "c7",
     jobTitle: "Onboarding email sequence v3",
-    agents: [agent("nova"), agent("juno")],
-    primaryAgentId: "juno",
+    agents: [agent("nojo-content"), agent("nojo-support")],
+    primaryAgentId: "nojo-support",
     status: "Waiting for Reply",
     lastPreview: "Juno: A/B subject lines ready for pick…",
     unreadCount: 0,
@@ -381,7 +354,7 @@ export const workspaceMessagesByConversation: Record<string, WorkspaceMessage[]>
       {
         id: "e2",
         type: "agent",
-        agentId: "ellis",
+        agentId: "nojo-builder",
         createdAt: "Today 8:02 AM",
         agentStatus: "Working",
         body: "Running aggregation across Snowflake marts and HubSpot stages. ETA 45m.",
@@ -394,14 +367,14 @@ export const workspaceMessagesByConversation: Record<string, WorkspaceMessage[]>
         command: "SELECT stage, COUNT(*) … GROUP BY week",
         outputSnippet: "12 rows · variance max +18% (enterprise)",
         success: true,
-        agentId: "ellis",
+        agentId: "nojo-builder",
       },
     ],
     c3: [
       {
         id: "j1",
         type: "agent",
-        agentId: "juno",
+        agentId: "nojo-support",
         createdAt: "Today 7:30 AM",
         agentStatus: "Working",
         body: "Triaged 42 tickets. Six need your eyes — billing disputes and one enterprise SLA.",
@@ -417,7 +390,7 @@ export const workspaceMessagesByConversation: Record<string, WorkspaceMessage[]>
       {
         id: "h2",
         type: "agent",
-        agentId: "kite",
+        agentId: "nojo-sales",
         createdAt: "Yesterday 4:20 PM",
         agentStatus: "Working",
         body: "Compiling reqs from 3 similar hires. Will post structured brief tomorrow AM.",
@@ -443,7 +416,7 @@ export const workspaceMessagesByConversation: Record<string, WorkspaceMessage[]>
       {
         id: "o1",
         type: "agent",
-        agentId: "juno",
+        agentId: "nojo-support",
         createdAt: "Mar 13",
         agentStatus: "Waiting for Reply",
         body: "Two subject lines: (A) You're in — next steps inside (B) Welcome — your workspace is ready",
@@ -457,7 +430,7 @@ export const workspaceJobContextByConversation: Record<string, JobContext> = {
     title: "Q2 Enterprise positioning refresh",
     description:
       "Refresh enterprise tier narrative with competitive intel, legal-safe claims, and sales-ready 2-pager.",
-    agentIds: ["nova", "kite", "mira"],
+    agentIds: ["nojo-content", "nojo-sales", "nojo-main"],
     dueDate: "Mar 21, 2025",
     progressPercent: 78,
     files: [
@@ -466,10 +439,10 @@ export const workspaceJobContextByConversation: Record<string, JobContext> = {
       { id: "f3", name: "brand_voice_v2.pdf", size: "1.4 MB" },
     ],
     subtasks: [
-      { id: "st1", title: "Competitor scan + theme table", done: true, assigneeAgentId: "kite" },
-      { id: "st2", title: "Draft v1 positioning doc", done: true, assigneeAgentId: "nova" },
-      { id: "st3", title: "Compliance review + claim edits", done: true, assigneeAgentId: "mira" },
-      { id: "st4", title: "Client approval + publish", done: false, assigneeAgentId: "nova" },
+      { id: "st1", title: "Competitor scan + theme table", done: true, assigneeAgentId: "nojo-sales" },
+      { id: "st2", title: "Draft v1 positioning doc", done: true, assigneeAgentId: "nojo-content" },
+      { id: "st3", title: "Compliance review + claim edits", done: true, assigneeAgentId: "nojo-main" },
+      { id: "st4", title: "Client approval + publish", done: false, assigneeAgentId: "nojo-content" },
     ],
     activity: [
       { id: "a1", label: "Kite completed research batch", time: "9:18 AM", tone: "success" },
@@ -486,14 +459,14 @@ export const workspaceJobContextByConversation: Record<string, JobContext> = {
     conversationId: "c2",
     title: "Pipeline health weekly digest",
     description: "Automated variance report across CRM and warehouse.",
-    agentIds: ["ellis"],
+    agentIds: ["nojo-builder"],
     dueDate: "Today 5:00 PM",
     progressPercent: 45,
     files: [{ id: "f1", name: "digest_template.html", size: "12 KB" }],
     subtasks: [
-      { id: "s1", title: "Pull warehouse metrics", done: true, assigneeAgentId: "ellis" },
-      { id: "s2", title: "Merge HubSpot stages", done: false, assigneeAgentId: "ellis" },
-      { id: "s3", title: "Email stakeholders", done: false, assigneeAgentId: "ellis" },
+      { id: "s1", title: "Pull warehouse metrics", done: true, assigneeAgentId: "nojo-builder" },
+      { id: "s2", title: "Merge HubSpot stages", done: false, assigneeAgentId: "nojo-builder" },
+      { id: "s3", title: "Email stakeholders", done: false, assigneeAgentId: "nojo-builder" },
     ],
     activity: [
       { id: "a1", label: "Digest job started", time: "8:00 AM" },
@@ -505,13 +478,13 @@ export const workspaceJobContextByConversation: Record<string, JobContext> = {
     conversationId: "c3",
     title: "Support inbox triage — Tier 1",
     description: "Route and summarize L1 support; escalate edge cases.",
-    agentIds: ["juno"],
+    agentIds: ["nojo-support"],
     dueDate: "Ongoing",
     progressPercent: 60,
     files: [],
     subtasks: [
-      { id: "t1", title: "Batch classify open threads", done: true, assigneeAgentId: "juno" },
-      { id: "t2", title: "Human escalation queue", done: false, assigneeAgentId: "juno" },
+      { id: "t1", title: "Batch classify open threads", done: true, assigneeAgentId: "nojo-support" },
+      { id: "t2", title: "Human escalation queue", done: false, assigneeAgentId: "nojo-support" },
     ],
     activity: [{ id: "a1", label: "42 tickets triaged", time: "7:30 AM", tone: "success" }],
     deliverables: [],
@@ -520,13 +493,13 @@ export const workspaceJobContextByConversation: Record<string, JobContext> = {
     conversationId: "c4",
     title: "Agent hiring brief — SDR bot",
     description: "Structured brief for hiring an SDR-focused agent with ES coverage.",
-    agentIds: ["nova", "kite"],
+    agentIds: ["nojo-content", "nojo-sales"],
     dueDate: "Mar 25, 2025",
     progressPercent: 25,
     files: [],
     subtasks: [
-      { id: "t1", title: "Gather similar job specs", done: false, assigneeAgentId: "kite" },
-      { id: "t2", title: "Draft brief doc", done: false, assigneeAgentId: "nova" },
+      { id: "t1", title: "Gather similar job specs", done: false, assigneeAgentId: "nojo-sales" },
+      { id: "t2", title: "Draft brief doc", done: false, assigneeAgentId: "nojo-content" },
     ],
     activity: [{ id: "a1", label: "Requirements noted (Spanish)", time: "Yesterday" }],
     deliverables: [],
@@ -535,13 +508,13 @@ export const workspaceJobContextByConversation: Record<string, JobContext> = {
     conversationId: "c5",
     title: "Brand voice guidelines update",
     description: "Completed — guidelines PDF in brand portal.",
-    agentIds: ["nova"],
+    agentIds: ["nojo-content"],
     dueDate: "Mar 10, 2025",
     progressPercent: 100,
     files: [{ id: "f1", name: "brand_voice_final.pdf", size: "3.2 MB" }],
     subtasks: [
-      { id: "t1", title: "Stakeholder interviews", done: true, assigneeAgentId: "nova" },
-      { id: "t2", title: "Publish PDF", done: true, assigneeAgentId: "nova" },
+      { id: "t1", title: "Stakeholder interviews", done: true, assigneeAgentId: "nojo-content" },
+      { id: "t2", title: "Publish PDF", done: true, assigneeAgentId: "nojo-content" },
     ],
     activity: [{ id: "a1", label: "Job completed", time: "Mar 10", tone: "success" }],
     deliverables: [{ id: "d1", name: "brand_voice_final.pdf", status: "Approved" }],
@@ -550,13 +523,13 @@ export const workspaceJobContextByConversation: Record<string, JobContext> = {
     conversationId: "c6",
     title: "SOC2 evidence collection",
     description: "Audit evidence pack — archived.",
-    agentIds: ["mira", "ellis"],
+    agentIds: ["nojo-main", "nojo-builder"],
     dueDate: "Mar 14, 2025",
     progressPercent: 100,
     files: [{ id: "f1", name: "soc2_evidence_bundle.zip", size: "890 MB" }],
     subtasks: [
-      { id: "t1", title: "Collect controls evidence", done: true, assigneeAgentId: "mira" },
-      { id: "t2", title: "Zip and handoff", done: true, assigneeAgentId: "ellis" },
+      { id: "t1", title: "Collect controls evidence", done: true, assigneeAgentId: "nojo-main" },
+      { id: "t2", title: "Zip and handoff", done: true, assigneeAgentId: "nojo-builder" },
     ],
     activity: [{ id: "a1", label: "Audit pack delivered", time: "Mar 14", tone: "success" }],
     deliverables: [{ id: "d1", name: "soc2_evidence_bundle.zip", status: "Approved" }],
@@ -565,12 +538,12 @@ export const workspaceJobContextByConversation: Record<string, JobContext> = {
     conversationId: "c7",
     title: "Onboarding email sequence v3",
     description: "A/B subject lines and sequence timing.",
-    agentIds: ["nova", "juno"],
+    agentIds: ["nojo-content", "nojo-support"],
     dueDate: "Mar 20, 2025",
     progressPercent: 55,
     files: [],
     subtasks: [
-      { id: "t1", title: "Draft sequence", done: true, assigneeAgentId: "juno" },
+      { id: "t1", title: "Draft sequence", done: true, assigneeAgentId: "nojo-support" },
       { id: "t2", title: "Choose subject winner", done: false },
     ],
     activity: [{ id: "a1", label: "Subject lines proposed", time: "Mar 13" }],

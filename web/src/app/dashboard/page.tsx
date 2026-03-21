@@ -1,13 +1,13 @@
-import { DashboardTeamStripWithSheet } from "@/components/dashboard/DashboardTeamStripWithSheet";
+import { DashboardTeamAgentsClient } from "@/components/dashboard/DashboardTeamAgentsClient";
 import { JobBoard } from "@/components/dashboard/JobBoard";
 import { SuggestedAgentsCard } from "@/components/dashboard/SuggestedAgentsCard";
 import { TopNav } from "@/components/dashboard/TopNav";
 import { SmartSuggestionsPanel } from "@/components/dashboard/SmartSuggestionsPanel";
+import { NOJO_WORKSPACE_AGENTS } from "@/data/nojoWorkspaceRoster";
 import {
   suggestedAgentsRows,
   headerNavItems,
 } from "@/data/dashboardSampleData";
-import { teamAgentsMock } from "@/data/teamPageMock";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -16,9 +16,6 @@ export const metadata: Metadata = {
 };
 
 export default function DashboardPage() {
-  const agentBoardDemo =
-    process.env.NEXT_PUBLIC_AGENT_BOARD_DEMO !== "false";
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-neutral-100 via-neutral-50 to-sky-50/20 text-slate-900 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900 dark:text-neutral-50">
       <TopNav items={headerNavItems} />
@@ -32,7 +29,7 @@ export default function DashboardPage() {
               Agent work board
             </h1>
           </div>
-          <DashboardTeamStripWithSheet teamAgents={teamAgentsMock} />
+          <DashboardTeamAgentsClient baseRoster={NOJO_WORKSPACE_AGENTS} />
         </header>
 
         <div className="flex flex-col gap-8 xl:flex-row xl:items-start xl:gap-8">
@@ -41,7 +38,7 @@ export default function DashboardPage() {
             <SuggestedAgentsCard rows={suggestedAgentsRows} />
           </aside>
           <div className="order-1 min-w-0 flex-1 xl:order-2">
-            <JobBoard demoMode={agentBoardDemo} />
+            <JobBoard />
           </div>
         </div>
       </main>

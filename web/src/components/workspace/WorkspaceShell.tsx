@@ -7,29 +7,85 @@ import {
   type WorkspaceMessage,
   workspaceConversations,
 } from "@/data/workspaceChatMock";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { NOJO_WORKSPACE_AGENTS } from "@/data/nojoWorkspaceRoster";
+import { canonicalizeNojoAgentIdForClient } from "@/lib/nojo/agentIdentityMap";
+import type { NovaContentQaPayload } from "@/lib/nojo/nojoScaffoldQaTypes";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { AgentIdentityProvider, useAgentIdentity } from "./AgentIdentityContext";
 import { ChatComposer } from "./ChatComposer";
-import { ChatHeader } from "./ChatHeader";
 import { ConversationList } from "./ConversationList";
 import { JobContextPanel } from "./JobContextPanel";
 import { MessageFeed } from "./MessageFeed";
+import { ThreadParticipantStrip } from "./ThreadParticipantStrip";
 import { RecentRunsList, type RecentRun } from "./RecentRunsList";
 
 type OpenClawSseEvent =
   | { type: "ready"; sessionKey: string }
   | {
       type: "history";
-      entries: Array<{ role: "user" | "assistant"; text: string }>;
+      entries: Array<{
+        role: "user" | "assistant";
+        text: string;
+        idempotencyKey?: string;
+      }>;
     }
   | { type: "delta"; runId: string; text: string }
   | { type: "final"; runId: string; text: string; stopReason?: string }
   | { type: "aborted"; runId: string; text?: string }
-  | { type: "status"; phase: string; detail?: string }
+  | {
+      type: "status";
+      phase: string;
+      detail?: string;
+      requestedAgentId?: string;
+      effectiveAgentId?: string;
+      matchedNojoAgent?: boolean;
+      matchedLegacyAlias?: boolean;
+      legacyAliasUsed?: string;
+      identityScaffoldChecked?: boolean;
+      identityScaffoldSeeded?: boolean;
+      identityScaffoldSeedFiles?: string[];
+      identityScaffoldAgentId?: string;
+      scaffoldSkippedBecauseFilesExist?: boolean;
+      identityScaffoldRuntimeWorkspace?: string;
+      identityScaffoldConfiguredAgentsRoot?: string;
+      identityScaffoldTemplateRootResolved?: string;
+      identityScaffoldFileReports?: Array<{ fileName: string; outcome: string; detail?: string }>;
+      identityScaffoldRuntimeFileSnapshot?: Record<
+        string,
+        { exists: boolean; byteLength: number; sha256: string }
+      >;
+      identityScaffoldRuntimeIdentityFingerprint?: string;
+      identityScaffoldGenericFallbackRisk?: boolean;
+      preExistingNonEmptyFiles?: string[];
+      novaContentQa?: NovaContentQaPayload;
+    }
   | { type: "error"; message: string; code?: string; runId?: string };
 
-export function WorkspaceShell() {
+export function WorkspaceShell({
+  initialConversationId = null,
+}: {
+  /** When valid, selects this thread on load (e.g. deep link from the work board). */
+  initialConversationId?: string | null;
+}) {
+  return (
+    <AgentIdentityProvider baseRoster={NOJO_WORKSPACE_AGENTS}>
+      <WorkspaceShellInner initialConversationId={initialConversationId} />
+    </AgentIdentityProvider>
+  );
+}
+
+function WorkspaceShellInner({
+  initialConversationId = null,
+}: {
+  initialConversationId?: string | null;
+}) {
   const defaultId = workspaceConversations[0]?.id ?? null;
-  const [selectedId, setSelectedId] = useState<string | null>(defaultId);
+  const [selectedId, setSelectedId] = useState<string | null>(() => {
+    if (initialConversationId && getConversation(initialConversationId)) {
+      return initialConversationId;
+    }
+    return defaultId;
+  });
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -37,6 +93,7 @@ export function WorkspaceShell() {
   const [localMessagesByConversationId, setLocalMessagesByConversationId] = useState<
     Record<string, WorkspaceMessage[]>
   >({});
+  const localMessagesByConversationIdRef = useRef(localMessagesByConversationId);
   const [openClawMessagesByConversationId, setOpenClawMessagesByConversationId] = useState<
     Record<string, WorkspaceMessage[]>
   >({});
@@ -44,9 +101,20 @@ export function WorkspaceShell() {
     conversationId: string;
     runId: string;
     text: string;
+    sequence: number;
   } | null>(null);
+  /** True after a successful send until the first SSE delta (or terminal stream event). */
+  const [assistantPendingAfterSend, setAssistantPendingAfterSend] = useState(false);
   const [recentRuns, setRecentRuns] = useState<RecentRun[]>([]);
   const eventSourceRef = useRef<EventSource | null>(null);
+
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
+  const bottomAnchorRef = useRef<HTMLDivElement | null>(null);
+  const stickToBottomRef = useRef(true);
+  const scrollBehaviorRef = useRef<ScrollBehavior>("auto");
+
+  const sequenceCounterRef = useRef<number>(0);
+  const runSequenceByIdRef = useRef<Map<string, number>>(new Map());
 
   const fetchRecentRuns = useCallback(async () => {
     try {
@@ -79,14 +147,72 @@ export function WorkspaceShell() {
     return new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   }
 
+  function nextSequence() {
+    if (selectedId) {
+      const baseLen = getMessagesForConversation(selectedId)?.length ?? 0;
+      if (sequenceCounterRef.current < baseLen) sequenceCounterRef.current = baseLen;
+    }
+    const n = sequenceCounterRef.current;
+    sequenceCounterRef.current += 1;
+    return n;
+  }
+
   const conversation = useMemo(
     () => (selectedId ? getConversation(selectedId) ?? null : null),
     [selectedId],
   );
+
+  const { getAgent } = useAgentIdentity();
+
+  const conversationForUi = useMemo(() => {
+    if (!conversation) return null;
+    return {
+      ...conversation,
+      agents: conversation.agents.map((a) => getAgent(a.id) ?? a),
+    };
+  }, [conversation, getAgent]);
+
+  // Keep ref in sync for SSE history reconciliation without re-subscribing.
+  useEffect(() => {
+    localMessagesByConversationIdRef.current = localMessagesByConversationId;
+  }, [localMessagesByConversationId]);
+
+  // Ensure our monotonic sequence counter starts after:
+  // - the base (mock) conversation messages
+  // - the max sequence already stored in state for this conversation
+  useEffect(() => {
+    if (!selectedId) return;
+    const baseLen = getMessagesForConversation(selectedId)?.length ?? 0;
+    const localSeqs =
+      localMessagesByConversationId[selectedId]?.map((m) =>
+        typeof m.sequence === "number" ? m.sequence : undefined,
+      ) ?? [];
+    const openClawSeqs =
+      openClawMessagesByConversationId[selectedId]?.map((m) =>
+        typeof m.sequence === "number" ? m.sequence : undefined,
+      ) ?? [];
+    const maxSeq = Math.max(
+      -Infinity,
+      ...localSeqs.filter((x): x is number => typeof x === "number"),
+      ...openClawSeqs.filter((x): x is number => typeof x === "number"),
+    );
+
+    const minStart = Math.max(baseLen, Number.isFinite(maxSeq) ? maxSeq + 1 : baseLen);
+    if (sequenceCounterRef.current < minStart) sequenceCounterRef.current = minStart;
+  }, [selectedId, localMessagesByConversationId, openClawMessagesByConversationId]);
+
   const messages = useMemo(() => {
     if (!selectedId) return [];
+
+    const baseMessages = getMessagesForConversation(selectedId).map((m, i) => ({
+      ...m,
+      // Base messages are mock data; give them deterministic ordering indexes
+      // so sorting is stable even before we add real sequences.
+      sequence: typeof m.sequence === "number" ? m.sequence : i,
+    }));
+
     const streamExtra: WorkspaceMessage[] =
-      streamAssistant && streamAssistant.conversationId === selectedId && streamAssistant.text
+      streamAssistant && streamAssistant.conversationId === selectedId
         ? [
             {
               id: `oc_stream_${streamAssistant.runId}`,
@@ -95,15 +221,28 @@ export function WorkspaceShell() {
               agentId: conversation?.primaryAgentId ?? "agent",
               body: streamAssistant.text,
               agentStatus: "Working",
+              sequence: streamAssistant.sequence,
             },
           ]
         : [];
-    return [
-      ...getMessagesForConversation(selectedId),
+
+    const merged: WorkspaceMessage[] = [
+      ...baseMessages,
       ...(openClawMessagesByConversationId[selectedId] ?? []),
       ...(localMessagesByConversationId[selectedId] ?? []),
       ...streamExtra,
     ];
+
+    // Strictly order by the monotonic sequence. Fall back to array position
+    // (stable for a given render) so we never get non-deterministic sorting.
+    return merged
+      .map((m, idx) => ({
+        m,
+        seq: typeof m.sequence === "number" ? m.sequence : Number.MAX_SAFE_INTEGER,
+        idx,
+      }))
+      .sort((a, b) => a.seq - b.seq || a.idx - b.idx)
+      .map((x) => x.m);
   }, [
     selectedId,
     localMessagesByConversationId,
@@ -114,7 +253,36 @@ export function WorkspaceShell() {
 
   useEffect(() => {
     setStreamAssistant(null);
+    setAssistantPendingAfterSend(false);
+    runSequenceByIdRef.current.clear();
+    stickToBottomRef.current = true;
+    scrollBehaviorRef.current = "auto";
   }, [selectedId]);
+
+  useEffect(() => {
+    const el = chatScrollRef.current;
+    if (!el) return;
+    const thresholdPx = 88;
+    const onScroll = () => {
+      const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+      stickToBottomRef.current = distance <= thresholdPx;
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [selectedId]);
+
+  useLayoutEffect(() => {
+    if (!stickToBottomRef.current) return;
+    const behavior = scrollBehaviorRef.current;
+    scrollBehaviorRef.current = "auto";
+    bottomAnchorRef.current?.scrollIntoView({ block: "end", behavior });
+  }, [
+    messages,
+    streamAssistant,
+    assistantPendingAfterSend,
+    submitting,
+    selectedId,
+  ]);
 
   useEffect(() => {
     eventSourceRef.current?.close();
@@ -122,9 +290,10 @@ export function WorkspaceShell() {
 
     if (!conversation) return;
 
+    const canonicalAgentId = canonicalizeNojoAgentIdForClient(conversation.primaryAgentId);
     const params = new URLSearchParams({
       conversationId: conversation.id,
-      agentId: conversation.primaryAgentId,
+      agentId: canonicalAgentId,
     });
     const es = new EventSource(`/api/openclaw/chat/stream?${params.toString()}`);
     eventSourceRef.current = es;
@@ -138,45 +307,105 @@ export function WorkspaceShell() {
       }
 
       const cid = conversation.id;
-      const agentId = conversation.primaryAgentId;
+      const agentId = canonicalAgentId;
       const t = formatNowTime();
 
       if (data.type === "history" && Array.isArray(data.entries)) {
-        const mapped: WorkspaceMessage[] = data.entries.map((e, i) =>
-          e.role === "user"
-            ? {
+        console.info("[openclaw-qa][stream.history]", {
+          conversationId: cid,
+          primaryAgentId: conversation.primaryAgentId,
+          canonicalAgentId: agentId,
+          entryCount: data.entries.length,
+          assistantPreviews: data.entries
+            .filter((e) => e.role === "assistant")
+            .map((e) => e.text.slice(0, 160)),
+        });
+
+        const localMsgs = localMessagesByConversationIdRef.current[cid] ?? [];
+        const optimisticUserKeys = new Set(
+          localMsgs
+            .filter((m): m is Extract<WorkspaceMessage, { type: "user" }> => m.type === "user")
+            .map((m) => m.idempotencyKey)
+            .filter((k): k is string => typeof k === "string" && k.length > 0),
+        );
+
+        const mapped = data.entries
+          .map((e, i) => {
+            if (
+              e.role === "user" &&
+              e.idempotencyKey &&
+              optimisticUserKeys.has(e.idempotencyKey)
+            ) {
+              // Preserve optimistic timeline position by skipping echoed user entries
+              // in OpenClaw history (assistant/system entries still render).
+              return null;
+            }
+
+            if (e.role === "user") {
+              return {
                 id: `oc_hist_u_${cid}_${i}`,
                 type: "user" as const,
                 createdAt: t,
                 body: e.text,
-              }
-            : {
-                id: `oc_hist_a_${cid}_${i}`,
-                type: "agent" as const,
-                createdAt: t,
-                agentId,
-                body: e.text,
-              },
-        );
+                sequence: nextSequence(),
+                idempotencyKey: e.idempotencyKey,
+              };
+            }
+
+            return {
+              id: `oc_hist_a_${cid}_${i}`,
+              type: "agent" as const,
+              createdAt: t,
+              agentId,
+              body: e.text,
+              sequence: nextSequence(),
+            };
+          })
+          .filter((x) => x !== null) as WorkspaceMessage[];
+
         setOpenClawMessagesByConversationId((prev) => ({ ...prev, [cid]: mapped }));
         return;
       }
 
       if (data.type === "delta") {
-        setStreamAssistant({ conversationId: cid, runId: data.runId, text: data.text });
+        const rid = data.runId;
+        let seq = runSequenceByIdRef.current.get(rid);
+        if (typeof seq !== "number") {
+          seq = nextSequence();
+          runSequenceByIdRef.current.set(rid, seq);
+        }
+
+        setAssistantPendingAfterSend(false);
+        setStreamAssistant({ conversationId: cid, runId: rid, text: data.text, sequence: seq });
         return;
       }
 
       if (data.type === "final") {
+        setAssistantPendingAfterSend(false);
         setStreamAssistant(null);
+        const rid = data.runId;
+        console.info("[openclaw-qa][stream.live]", {
+          conversationId: cid,
+          primaryAgentId: conversation.primaryAgentId,
+          runId: rid,
+          source: "gateway_final",
+          textPreview: data.text.slice(0, 160),
+        });
+        let seq = runSequenceByIdRef.current.get(rid);
+        if (typeof seq !== "number") {
+          seq = nextSequence();
+          runSequenceByIdRef.current.set(rid, seq);
+        }
         const agentMsg: WorkspaceMessage = {
-          id: `oc_final_${data.runId}`,
+          id: `oc_final_${rid}`,
           type: "agent",
           createdAt: t,
           agentId,
           body: data.text,
           agentStatus: "Completed",
+          sequence: seq,
         };
+        runSequenceByIdRef.current.delete(rid);
         setOpenClawMessagesByConversationId((prev) => ({
           ...prev,
           [cid]: [...(prev[cid] ?? []), agentMsg],
@@ -185,15 +414,24 @@ export function WorkspaceShell() {
       }
 
       if (data.type === "aborted") {
+        setAssistantPendingAfterSend(false);
         setStreamAssistant(null);
+        const rid = data.runId;
+        let seq = runSequenceByIdRef.current.get(rid);
+        if (typeof seq !== "number") {
+          seq = nextSequence();
+          runSequenceByIdRef.current.set(rid, seq);
+        }
         const sys: WorkspaceMessage = {
-          id: `oc_abort_${data.runId}`,
+          id: `oc_abort_${rid}`,
           type: "system",
           createdAt: t,
           body: data.text?.trim()
             ? `OpenClaw run aborted · ${data.text.trim()}`
             : "OpenClaw run aborted.",
+          sequence: seq,
         };
+        runSequenceByIdRef.current.delete(rid);
         setOpenClawMessagesByConversationId((prev) => ({
           ...prev,
           [cid]: [...(prev[cid] ?? []), sys],
@@ -205,12 +443,25 @@ export function WorkspaceShell() {
         if (data.code === "BRIDGE_CONNECT") {
           setToast(`OpenClaw: ${data.message}`);
         }
+
+        // If we hit an error, stop rendering the streamed "Live" placeholder.
+        setAssistantPendingAfterSend(false);
+        setStreamAssistant(null);
+
+        const rid = typeof data.runId === "string" ? data.runId : undefined;
+        const seq =
+          rid && rid.length > 0
+            ? runSequenceByIdRef.current.get(rid) ?? nextSequence()
+            : nextSequence();
+
         const sys: WorkspaceMessage = {
           id: uid(),
           type: "system",
           createdAt: t,
           body: `OpenClaw error${data.code ? ` (${data.code})` : ""}: ${data.message}`,
+          sequence: seq,
         };
+        if (rid) runSequenceByIdRef.current.delete(rid);
         setOpenClawMessagesByConversationId((prev) => ({
           ...prev,
           [cid]: [...(prev[cid] ?? []), sys],
@@ -219,7 +470,31 @@ export function WorkspaceShell() {
       }
 
       if (data.type === "status") {
-        /* near-real-time tool/status noise — optional to surface */
+        if (data.phase === "identity_scaffold") {
+          console.info("[openclaw-qa][stream.identity]", {
+            conversationId: cid,
+            primaryAgentId: conversation.primaryAgentId,
+            requestedAgentId: data.requestedAgentId,
+            effectiveAgentId: data.effectiveAgentId,
+            matchedNojoAgent: data.matchedNojoAgent,
+            matchedLegacyAlias: data.matchedLegacyAlias,
+            legacyAliasUsed: data.legacyAliasUsed,
+            identityScaffoldChecked: data.identityScaffoldChecked,
+            identityScaffoldSeeded: data.identityScaffoldSeeded,
+            identityScaffoldSeedFiles: data.identityScaffoldSeedFiles,
+            identityScaffoldAgentId: data.identityScaffoldAgentId,
+            scaffoldSkippedBecauseFilesExist: data.scaffoldSkippedBecauseFilesExist,
+            identityScaffoldRuntimeWorkspace: data.identityScaffoldRuntimeWorkspace,
+            identityScaffoldConfiguredAgentsRoot: data.identityScaffoldConfiguredAgentsRoot,
+            identityScaffoldTemplateRootResolved: data.identityScaffoldTemplateRootResolved,
+            identityScaffoldFileReports: data.identityScaffoldFileReports,
+            identityScaffoldRuntimeFileSnapshot: data.identityScaffoldRuntimeFileSnapshot,
+            identityScaffoldRuntimeIdentityFingerprint: data.identityScaffoldRuntimeIdentityFingerprint,
+            identityScaffoldGenericFallbackRisk: data.identityScaffoldGenericFallbackRisk,
+            preExistingNonEmptyFiles: data.preExistingNonEmptyFiles,
+            novaContentQa: data.novaContentQa,
+          });
+        }
       }
     };
 
@@ -263,12 +538,24 @@ export function WorkspaceShell() {
       const trimmed = prompt.trim();
       if (!trimmed) return;
 
+      const priorCount = (localMessagesByConversationId[selectedId] ?? []).length;
+      const isFirstUserMessage = priorCount === 0;
+
+      const idempotencyKey =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `nojo_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+      const canonicalAgentId = canonicalizeNojoAgentIdForClient(conversation.primaryAgentId);
+
       const createdAt = formatNowTime();
+      const sequence = nextSequence();
       const userMsg: WorkspaceMessage = {
         id: uid(),
         type: "user",
         createdAt,
         body: trimmed,
+        sequence,
+        idempotencyKey,
       };
 
       setLocalMessagesByConversationId((prev) => ({
@@ -276,21 +563,20 @@ export function WorkspaceShell() {
         [selectedId]: [...(prev[selectedId] ?? []), userMsg],
       }));
 
+      stickToBottomRef.current = true;
+      scrollBehaviorRef.current = "smooth";
+
       setSubmitting(true);
       try {
-        const idempotencyKey =
-          typeof crypto !== "undefined" && "randomUUID" in crypto
-            ? crypto.randomUUID()
-            : `nojo_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-
         const res = await fetch("/api/openclaw/chat/send", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             prompt: trimmed,
-            agentId: conversation.primaryAgentId,
+            agentId: canonicalAgentId,
             conversationId: conversation.id,
             idempotencyKey,
+            isFirstUserMessage,
           }),
         });
 
@@ -304,6 +590,30 @@ export function WorkspaceShell() {
           message?: string;
           code?: string;
           sessionKey?: string;
+          isFirstUserMessage?: boolean;
+          firstTurnIdentityFallbackApplied?: boolean;
+          requestedAgentId?: string;
+          effectiveAgentId?: string;
+          matchedNojoAgent?: boolean;
+          matchedLegacyAlias?: boolean;
+          legacyAliasUsed?: string;
+          identityScaffoldChecked?: boolean;
+          identityScaffoldSeeded?: boolean;
+          identityScaffoldSeedFiles?: string[];
+          identityScaffoldAgentId?: string;
+          scaffoldSkippedBecauseFilesExist?: boolean;
+          identityScaffoldRuntimeWorkspace?: string;
+          identityScaffoldConfiguredAgentsRoot?: string;
+          identityScaffoldTemplateRootResolved?: string;
+          identityScaffoldFileReports?: Array<{ fileName: string; outcome: string; detail?: string }>;
+          identityScaffoldRuntimeFileSnapshot?: Record<
+            string,
+            { exists: boolean; byteLength: number; sha256: string }
+          >;
+          identityScaffoldRuntimeIdentityFingerprint?: string;
+          identityScaffoldGenericFallbackRisk?: boolean;
+          preExistingNonEmptyFiles?: string[];
+          novaContentQa?: NovaContentQaPayload;
         };
 
         if (!res.ok || !json.success) {
@@ -323,6 +633,7 @@ export function WorkspaceShell() {
             type: "system",
             createdAt,
             body: `OpenClaw chat failed · ${detailsMessage}`,
+            sequence: nextSequence(),
           };
           setLocalMessagesByConversationId((prev) => ({
             ...prev,
@@ -333,6 +644,33 @@ export function WorkspaceShell() {
           throw new Error(detailsMessage);
         }
 
+        console.info("[openclaw-qa][send.identity]", {
+          conversationId: conversation.id,
+          primaryAgentId: conversation.primaryAgentId,
+          isFirstUserMessage,
+          firstTurnIdentityFallbackApplied: json.firstTurnIdentityFallbackApplied,
+          requestedAgentId: json.requestedAgentId,
+          effectiveAgentId: json.effectiveAgentId,
+          matchedNojoAgent: json.matchedNojoAgent,
+          matchedLegacyAlias: json.matchedLegacyAlias,
+          legacyAliasUsed: json.legacyAliasUsed,
+          identityScaffoldChecked: json.identityScaffoldChecked,
+          identityScaffoldSeeded: json.identityScaffoldSeeded,
+          identityScaffoldSeedFiles: json.identityScaffoldSeedFiles,
+          identityScaffoldAgentId: json.identityScaffoldAgentId,
+          scaffoldSkippedBecauseFilesExist: json.scaffoldSkippedBecauseFilesExist,
+          identityScaffoldRuntimeWorkspace: json.identityScaffoldRuntimeWorkspace,
+          identityScaffoldConfiguredAgentsRoot: json.identityScaffoldConfiguredAgentsRoot,
+          identityScaffoldTemplateRootResolved: json.identityScaffoldTemplateRootResolved,
+          identityScaffoldFileReports: json.identityScaffoldFileReports,
+          identityScaffoldRuntimeFileSnapshot: json.identityScaffoldRuntimeFileSnapshot,
+          identityScaffoldRuntimeIdentityFingerprint: json.identityScaffoldRuntimeIdentityFingerprint,
+          identityScaffoldGenericFallbackRisk: json.identityScaffoldGenericFallbackRisk,
+          preExistingNonEmptyFiles: json.preExistingNonEmptyFiles,
+          novaContentQa: json.novaContentQa,
+        });
+
+        setAssistantPendingAfterSend(true);
         setToast("Sent to OpenClaw");
       } catch (err) {
         throw err;
@@ -340,7 +678,7 @@ export function WorkspaceShell() {
         setSubmitting(false);
       }
     },
-    [conversation, selectedId],
+    [conversation, selectedId, localMessagesByConversationId],
   );
 
   useEffect(() => {
@@ -356,7 +694,7 @@ export function WorkspaceShell() {
   }, [leftOpen, rightOpen]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col lg:min-h-[calc(100vh-8rem)]">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {toast ? (
         <div
           className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full border border-neutral-200/80 bg-slate-900 px-4 py-2 text-sm text-white shadow-lg dark:bg-white dark:text-slate-900"
@@ -393,9 +731,9 @@ export function WorkspaceShell() {
         </span>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[280px_1fr_320px]">
+      <div className="grid h-full min-h-0 flex-1 grid-cols-1 items-stretch lg:grid-cols-[280px_1fr_320px]">
         {/* Left: desktop */}
-        <div className="hidden min-h-0 overflow-hidden rounded-2xl border border-neutral-200/80 bg-white/50 shadow-sm dark:border-slate-800 dark:bg-slate-900/30 lg:flex lg:flex-col">
+        <div className="hidden h-full min-h-0 overflow-hidden rounded-2xl border border-neutral-200/80 bg-white/50 shadow-sm dark:border-slate-800 dark:bg-slate-900/30 lg:flex lg:flex-col">
           <div className="min-h-0 flex-1 overflow-hidden">
             <ConversationList
               conversations={workspaceConversations}
@@ -411,11 +749,27 @@ export function WorkspaceShell() {
         </div>
 
         {/* Center chat */}
-        <div className="flex min-h-0 min-w-0 flex-col border-neutral-200/80 bg-white/40 dark:border-slate-800 dark:bg-slate-950/20 lg:border-x">
-          <ChatHeader conversation={conversation} />
-          <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="flex h-full min-h-0 min-w-0 flex-col border-neutral-200/80 bg-white/40 dark:border-slate-800 dark:bg-slate-950/20 lg:border-x">
+          {conversation ? (
+            <ThreadParticipantStrip
+              agents={conversationForUi?.agents ?? conversation.agents}
+              primaryAgentId={conversation.primaryAgentId}
+            />
+          ) : null}
+          <div ref={chatScrollRef} className="min-h-0 flex-1 overflow-y-auto">
             {conversation ? (
-              <MessageFeed messages={messages} />
+              <MessageFeed
+                messages={messages}
+                bottomAnchorRef={bottomAnchorRef}
+                showAgentTypingRow={
+                  (submitting || assistantPendingAfterSend) &&
+                  !(
+                    streamAssistant &&
+                    streamAssistant.conversationId === conversation.id
+                  )
+                }
+                typingAgentId={conversation.primaryAgentId}
+              />
             ) : (
               <p className="p-8 text-center text-sm text-slate-500 dark:text-neutral-400">
                 Choose a conversation from Inbox.
@@ -424,7 +778,7 @@ export function WorkspaceShell() {
           </div>
           {conversation ? (
             <ChatComposer
-              agents={conversation.agents}
+              agents={conversationForUi?.agents ?? conversation.agents}
               submitting={submitting}
               onSend={handleSend}
             />
@@ -438,7 +792,7 @@ export function WorkspaceShell() {
         </div>
 
         {/* Right: desktop */}
-        <div className="hidden min-h-0 overflow-hidden rounded-2xl border border-neutral-200/80 bg-white/50 shadow-sm dark:border-slate-800 dark:bg-slate-900/30 lg:block">
+        <div className="hidden h-full min-h-0 overflow-hidden rounded-2xl border border-neutral-200/80 bg-white/50 shadow-sm dark:border-slate-800 dark:bg-slate-900/30 lg:block">
           <JobContextPanel context={jobContext} />
         </div>
       </div>

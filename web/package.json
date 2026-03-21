@@ -8,19 +8,29 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "vitest run",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio"
   },
   "dependencies": {
+    "@noble/ed25519": "^2.1.1",
     "@prisma/client": "^6.9.0",
+    "@tailwindcss/typography": "^0.5.19",
+    "cron-parser": "^5.4.0",
+    "gray-matter": "^4.0.3",
     "next": "16.1.6",
     "next-auth": "^4.24.11",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-markdown": "^10.1.0",
     "recharts": "^2.15.0",
+    "rehype-highlight": "^7.0.2",
+    "rehype-sanitize": "^6.0.0",
+    "remark-gfm": "^4.0.1",
     "simple-icons": "^16.12.0",
-    "ws": "^8.19.0"
+    "ws": "^8.19.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -32,6 +42,7 @@
     "eslint-config-next": "16.1.6",
     "prisma": "^6.9.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.0"
   }
 }

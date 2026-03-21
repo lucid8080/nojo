@@ -3,12 +3,19 @@
 import { AgentDetailsSheet } from "@/components/team/AgentDetailsSheet";
 import { CollaboratorStrip } from "@/components/dashboard/CollaboratorStrip";
 import type { TeamAgent } from "@/data/teamPageMock";
+import type { CategoryColorName } from "@/lib/categoryColors";
 import { useMemo, useState } from "react";
 
 const STRIP_MAX = 7;
 
 type StripAgent =
-  | { id: string; initials: string; categoryLabel?: string; badge?: number }
+  | {
+      id: string;
+      initials: string;
+      categoryLabel?: string;
+      avatarAccent?: CategoryColorName;
+      badge?: number;
+    }
   | { id: string; initials: string; isAdd: true };
 
 function buildStripAgents(teamAgents: TeamAgent[]): StripAgent[] {
@@ -16,6 +23,7 @@ function buildStripAgents(teamAgents: TeamAgent[]): StripAgent[] {
     id: a.id,
     initials: a.initials,
     categoryLabel: a.categoryLabel,
+    avatarAccent: a.avatarAccent,
   }));
   return [...slice, { id: "add", initials: "+", isAdd: true as const }];
 }

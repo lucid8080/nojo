@@ -620,3 +620,40 @@ export async function cancelRun(runId: string): Promise<CancelRunResult> {
     : new OpenClawError("OpenClaw cancelRun failed.", { code: "NETWORK" });
 }
 
+/**
+ * Cron list HTTP paths on the OpenClaw gateway (canonical scheduler API).
+ * Tries in order; 404 falls through. See OpenClaw cron jobs docs.
+ */
+const CRON_LIST_PATH_CANDIDATES = ["/api/cron", "/cron"];
+
+export type ListOpenClawCronJobsFromGatewayResult = {
+  endpoint: string;
+  /** Absolute gateway URL used for the successful request (for UI labels). */
+  sourceDetail: string;
+  data: unknown;
+};
+
+export async function listOpenClawCronJobsFromGateway(): Promise<ListOpenClawCronJobsFromGatewayResult> {
+  const config = loadOpenClawConfig();
+  const base = config.baseUrl.replace(/\/+$/, "");
+  let lastError: unknown;
+
+  for (const path of CRON_LIST_PATH_CANDIDATES) {
+    try {
+      const res = await openclawRequest<unknown>({ path, method: "GET" });
+      const sourceDetail = `${base}${path.startsWith("/") ? path : `/${path}`}`;
+      return { endpoint: path, data: res.data, sourceDetail };
+    } catch (err) {
+      lastError = err;
+      if (err instanceof OpenClawError && err.code === "UPSTREAM_HTTP" && err.status === 404) {
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new OpenClawError("OpenClaw cron list request failed.", { code: "NETWORK" });
+}
+

@@ -4,6 +4,13 @@ import WebSocket from "ws";
 
 import { appendGatewayWsAuthQuery, resolveGatewayWsUrl } from "./gateway-url";
 import { loadOpenClawConfig, OpenClawError } from "./client";
+import { buildDeviceAuthPayloadV2 } from "./openclaw-device-auth";
+import {
+  loadOrCreateOpenClawDeviceIdentity,
+  loadOpenClawDeviceToken,
+  storeOpenClawDeviceToken,
+  signDevicePayload,
+} from "./openclaw-device-identity";
 
 const PROTOCOL_VERSION = 3;
 
@@ -79,12 +86,21 @@ export class OpenClawGatewayWsClient {
   private ws: WebSocket | null = null;
   private pending = new Map<string, Pending>();
   private challengeNonce: string | null = null;
+  private challengeNoncePromise: Promise<string> | null = null;
+  private challengeNonceResolve: ((nonce: string) => void) | null = null;
   private connectInFlight: Promise<void> | null = null;
   private handshakeDone = false;
   private readonly onWireEvent: (ev: GatewayWireEvent) => void;
 
   constructor(onWireEvent: (ev: GatewayWireEvent) => void) {
     this.onWireEvent = onWireEvent;
+    this.resetChallengeWaiter();
+  }
+
+  private resetChallengeWaiter() {
+    this.challengeNoncePromise = new Promise<string>((resolve) => {
+      this.challengeNonceResolve = resolve;
+    });
   }
 
   async connect(): Promise<void> {
@@ -185,7 +201,12 @@ export class OpenClawGatewayWsClient {
               ? (m.error as Record<string, unknown>)
               : null;
           const errMsg = typeof errObj?.message === "string" ? errObj.message : "Gateway error";
-          p.reject(new OpenClawError(errMsg, { code: "UPSTREAM_HTTP" }));
+          const gatewayCode = typeof errObj?.code === "string" ? errObj.code : undefined;
+
+          // Include gateway error code in the message so callers can pattern-match
+          // for DEVICE_AUTH_* / PAIRING_REQUIRED diagnostics.
+          const message = gatewayCode ? `${gatewayCode}: ${errMsg}` : errMsg;
+          p.reject(new OpenClawError(message, { code: "UPSTREAM_HTTP" }));
         }
       }
       return;
@@ -196,6 +217,8 @@ export class OpenClawGatewayWsClient {
         const nonce = (m.payload as Record<string, unknown>).nonce;
         if (typeof nonce === "string" && nonce.length > 0) {
           this.challengeNonce = nonce;
+          this.challengeNonceResolve?.(nonce);
+          this.challengeNonceResolve = null;
         }
       }
       this.onWireEvent({ event: m.event, payload: m.payload });
@@ -210,36 +233,170 @@ export class OpenClawGatewayWsClient {
   private async performConnectHandshake(token: string, timeoutMs: number): Promise<void> {
     await new Promise((r) => setTimeout(r, 120));
 
+    const nonce = await this.waitForConnectChallengeNonce(Math.min(timeoutMs, 10_000));
+
+    // Device identity must be persisted server-side so `device.id` and `device.publicKey`
+    // remain stable across reconnects (required for gateway DEVICE_AUTH_* checks).
+    const {
+      identity: deviceIdentity,
+      loadedFromDisk: identityLoadedFromDisk,
+      identityPath,
+    } = await loadOrCreateOpenClawDeviceIdentity();
+
+    const role = "operator";
+    const scopes = ["operator.read", "operator.write"];
+
+    // Optional: if the gateway issues a per-device token, we persist and send it back.
+    // Signature verification still uses `auth.token` (shared gateway token) because we
+    // always set it. This avoids signature payload token mismatches.
+    const existingDeviceToken = await loadOpenClawDeviceToken({
+      deviceId: deviceIdentity.deviceId,
+      role,
+    });
+    const deviceTokenFoundOnDisk = typeof existingDeviceToken === "string" && existingDeviceToken.length > 0;
+
+    // Keep runtime logs safe: never log private keys, raw tokens, or signatures.
+    const debugBase = {
+      deviceId: deviceIdentity.deviceId,
+      identityPath,
+      identityLoadedFromDisk,
+      deviceTokenFoundOnDisk,
+    };
+
     const params: Record<string, unknown> = {
       minProtocol: PROTOCOL_VERSION,
       maxProtocol: PROTOCOL_VERSION,
-      client: {
-        id: "gateway-client",
-        version: "0.0.1",
-        platform: "nodejs",
-        mode: "backend",
-      },
-      role: "operator",
-      scopes: ["operator.read", "operator.write"],
+      client: { id: "gateway-client", version: "0.0.1", platform: "nodejs", mode: "backend" },
+      role,
+      scopes,
       caps: [],
       commands: [],
       permissions: {},
-      auth: { token },
+      auth: existingDeviceToken ? { token, deviceToken: existingDeviceToken } : { token },
       locale: "en-US",
       userAgent: "nojo-openclaw-bridge/1.0",
     };
 
-    if (this.challengeNonce) {
-      params.device = {
-        id: "nojo-bridge-device",
-        publicKey: "nojo-placeholder",
-        signature: "nojo-placeholder",
-        signedAt: Date.now(),
-        nonce: this.challengeNonce,
-      };
+    const signedAtMs = Date.now();
+
+    // OpenClaw device signature payload format is deterministic and must match the gateway's
+    // reconstruction exactly (see OpenClaw `buildDeviceAuthPayload` for v2 field ordering).
+    const devicePayload = buildDeviceAuthPayloadV2({
+      deviceId: deviceIdentity.deviceId,
+      clientId: String((params.client as Record<string, unknown>).id),
+      clientMode: String((params.client as Record<string, unknown>).mode),
+      role: String(params.role),
+      scopes: (params.scopes as unknown[]).map((s) => String(s)),
+      signedAtMs,
+      token,
+      nonce,
+    });
+
+    const signature = await signDevicePayload(deviceIdentity.privateKey, devicePayload);
+
+    // Include the signed device identity payload in the connect request.
+    // Do not send placeholders: these values must be derived from our persisted keypair.
+    (params as Record<string, unknown>).device = {
+      id: deviceIdentity.deviceId,
+      publicKey: deviceIdentity.publicKey,
+      signature,
+      signedAt: signedAtMs,
+      nonce,
+    };
+
+    try {
+      const hello = await this.request(
+        "connect",
+        params,
+        undefined,
+        Math.max(timeoutMs, 15_000),
+      );
+
+      // hello-ok example shape:
+      // { type: "hello-ok", auth: { deviceToken?: string, role?: string, scopes?: string[] } }
+      if (hello && typeof hello === "object") {
+        const o = hello as Record<string, unknown>;
+        const auth = (o.auth && typeof o.auth === "object" ? (o.auth as Record<string, unknown>) : null);
+        const deviceToken = typeof auth?.deviceToken === "string" ? auth.deviceToken : undefined;
+        const helloRole = typeof auth?.role === "string" ? auth.role : undefined;
+        const scopesRaw = Array.isArray(auth?.scopes) ? auth.scopes : undefined;
+
+        const helloReturnedDeviceToken =
+          typeof deviceToken === "string" && deviceToken.length > 0 && typeof helloRole === "string";
+
+        let helloStoredDeviceToken = false;
+
+        if (helloReturnedDeviceToken) {
+          const scopes =
+            scopesRaw?.map((s) => (typeof s === "string" ? s : "")).filter((s) => s.length > 0) ?? undefined;
+
+          try {
+            await storeOpenClawDeviceToken({
+              deviceId: deviceIdentity.deviceId,
+              role: helloRole,
+              token: deviceToken,
+              scopes,
+            });
+            helloStoredDeviceToken = true;
+          } catch {
+            // best-effort; keep connection success independent from persistence failure
+          }
+        }
+
+        console.info("[openclaw-device-auth]", {
+          ...debugBase,
+          helloReturnedDeviceToken,
+          helloStoredDeviceToken,
+        });
+      }
+    } catch (err) {
+      // If the gateway rejects because this brand-new device isn't approved yet, surface
+      // actionable pairing steps to the caller (generated identity is server-side only).
+      const msg = err instanceof Error ? err.message : String(err);
+      const looksLikePairingRequired =
+        /PAIRING_REQUIRED/i.test(msg) ||
+        /pairing required/i.test(msg) ||
+        /DEVICE_IDENTITY_REQUIRED/i.test(msg) ||
+        /device identity required/i.test(msg);
+
+      if (looksLikePairingRequired) {
+        throw new OpenClawError(
+          `OpenClaw rejected this device identity and requires pairing/approval.\n` +
+            `Generated deviceId: ${deviceIdentity.deviceId}\n\n` +
+            `One-time step (run against your OpenClaw gateway):\n` +
+            `1) openclaw devices list\n` +
+            `2) Find the pending request for role=operator and this deviceId\n` +
+            `3) openclaw devices approve <requestId>\n\n` +
+            `Then retry the chat connection.`,
+          { code: "BAD_REQUEST" },
+        );
+      }
+
+      throw err;
+    }
+  }
+
+  private async waitForConnectChallengeNonce(timeoutMs: number): Promise<string> {
+    if (this.challengeNonce && this.challengeNonce.length > 0) return this.challengeNonce;
+    if (!this.challengeNoncePromise) {
+      throw new OpenClawError("Missing connect.challenge promise state.", { code: "NETWORK" });
     }
 
-    await this.request("connect", params, undefined, Math.max(timeoutMs, 15_000));
+    return await new Promise<string>((resolve, reject) => {
+      const t = setTimeout(() => {
+        reject(new OpenClawError(`Timed out waiting for connect.challenge nonce.`, { code: "TIMEOUT" }));
+      }, timeoutMs);
+
+      this.challengeNoncePromise
+        ?.then((n) => {
+          clearTimeout(t);
+          resolve(n);
+        })
+        .catch((e) => {
+          clearTimeout(t);
+          reject(e instanceof Error ? e : new Error(String(e)));
+        });
+    });
   }
 
   request(method: string, params?: unknown, idOverride?: string, timeoutMs?: number): Promise<unknown> {
@@ -279,5 +436,6 @@ export class OpenClawGatewayWsClient {
     this.ws = null;
     this.handshakeDone = false;
     this.challengeNonce = null;
+    this.resetChallengeWaiter();
   }
 }

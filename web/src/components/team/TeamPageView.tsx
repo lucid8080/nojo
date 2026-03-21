@@ -1,6 +1,7 @@
 "use client";
 
 import { AgentDetailsSheet, TeamAgentAvatar } from "@/components/team/AgentDetailsSheet";
+import { CreateAgentSheet } from "@/components/team/CreateAgentSheet";
 import { CollaboratorStrip } from "@/components/dashboard/CollaboratorStrip";
 import type { collaboratorAgents } from "@/data/dashboardSampleData";
 import type {
@@ -18,6 +19,9 @@ import {
   getCategoryFilterSelectedClasses,
   getCategoryTagClasses,
 } from "@/lib/categoryColors";
+import { skillDetailHref } from "@/lib/nojo/resolveSkill";
+import type { NojoWorkspaceRosterEntry } from "@/data/nojoWorkspaceRoster";
+import { useHydratedTeamAgents } from "@/lib/nojo/useHydratedTeamAgents";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -130,7 +134,7 @@ function AgentCardActions({
       >
         View details
       </button>
-      <div className="relative" ref={wrapRef}>
+      <div className="relative z-20" ref={wrapRef}>
         <button
           type="button"
           aria-expanded={menuOpen}
@@ -144,7 +148,7 @@ function AgentCardActions({
           <ul
             role="menu"
             aria-orientation="vertical"
-            className="absolute right-0 z-30 mt-1 min-w-[11rem] rounded-xl border border-neutral-200 bg-white py-1 shadow-lg dark:border-slate-600 dark:bg-slate-900"
+            className="absolute bottom-full right-0 z-50 mb-1 min-w-[11rem] rounded-xl border border-neutral-200 bg-white py-1 shadow-lg dark:border-slate-600 dark:bg-slate-900"
           >
             <li>
               <button
@@ -152,7 +156,7 @@ function AgentCardActions({
                 role="menuitem"
                 className={itemClass}
                 onClick={() => {
-                  toastStub(`Edit: ${agent.name}`);
+                  onViewDetails();
                   setMenuOpen(false);
                 }}
               >
@@ -178,8 +182,8 @@ function AgentCardActions({
                 role="menuitem"
                 className={itemClass}
                 onClick={() => {
+                  onViewDetails();
                   onScrollSkills();
-                  toastStub(`Add skills for ${agent.name}`);
                   setMenuOpen(false);
                 }}
               >
@@ -194,19 +198,20 @@ function AgentCardActions({
 }
 
 export function TeamPageView({
-  initialAgents,
+  baseRoster,
   collaboratorAgents,
   autoScrollToCreateAgent,
 }: {
-  initialAgents: TeamAgent[];
+  baseRoster: readonly NojoWorkspaceRosterEntry[];
   collaboratorAgents: readonly CollaboratorAgent[];
   autoScrollToCreateAgent?: boolean;
 }) {
-  const [agents] = useState<TeamAgent[]>(initialAgents);
+  const agents = useHydratedTeamAgents(baseRoster);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [skillQuery, setSkillQuery] = useState("");
   const [category, setCategory] = useState<string>("All");
-  const [importMsg, setImportMsg] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createSession, setCreateSession] = useState(0);
 
   const stats = useMemo(() => deriveStats(agents), [agents]);
   const selectedAgent = useMemo(
@@ -250,11 +255,10 @@ export function TeamPageView({
     }, 250);
   }, []);
 
-  useEffect(() => {
-    if (!importMsg) return;
-    const t = window.setTimeout(() => setImportMsg(null), 3200);
-    return () => window.clearTimeout(t);
-  }, [importMsg]);
+  const openCreateSheet = useCallback(() => {
+    setCreateSession((s) => s + 1);
+    setCreateOpen(true);
+  }, []);
 
   useEffect(() => {
     if (!autoScrollToCreateAgent) return;
@@ -270,14 +274,14 @@ export function TeamPageView({
 
   return (
     <div className="space-y-0">
-      {importMsg ? (
-        <div
-          className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-medium text-white shadow-lg dark:bg-neutral-100 dark:text-slate-900"
-          role="status"
-        >
-          {importMsg}
-        </div>
-      ) : null}
+      <CreateAgentSheet
+        key={createSession}
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={(id) => {
+          setSelectedId(id);
+        }}
+      />
 
       <AgentDetailsSheet
         agent={selectedAgent}
@@ -305,7 +309,7 @@ export function TeamPageView({
               <button
                 type="button"
                 className={btnPrimary}
-                onClick={scrollToCreateAgent}
+                onClick={openCreateSheet}
               >
                 Create Agent
               </button>
@@ -356,7 +360,8 @@ export function TeamPageView({
             Current team
           </h2>
           <p className="mt-1 text-sm text-slate-600 dark:text-neutral-400">
-            Your roster of AI agents — mock data; replace with API.
+            Same canonical agents as Agent workspace — use ids to match runtime
+            and OpenClaw logs.
           </p>
         </div>
 
@@ -373,13 +378,17 @@ export function TeamPageView({
               Marketplace for skills — then assign work in one place.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-2">
-              <button type="button" className={btnPrimary} onClick={() => toastStub("Create first agent")}>
+              <button
+                type="button"
+                className={btnPrimary}
+                onClick={openCreateSheet}
+              >
                 Create your first agent
               </button>
               <button
                 type="button"
                 className={btnSecondary}
-                onClick={() => toastStub("Use template")}
+                onClick={openCreateSheet}
               >
                 Use a template
               </button>
@@ -397,22 +406,44 @@ export function TeamPageView({
             {agents.map((agent) => {
               const visibleTags = agent.skillTags.slice(0, 3);
               const extra = agent.skillTags.length - visibleTags.length;
+              const missing = agent.rosterFieldsMissing;
+              const nameMuted =
+                missing?.name &&
+                "italic text-slate-500 dark:text-neutral-500";
+              const roleMuted =
+                missing?.role &&
+                "text-slate-500 dark:text-neutral-500";
               return (
                 <article
                   key={agent.id}
-                  className={`flex flex-col overflow-hidden rounded-2xl border border-neutral-200/90 bg-white py-4 pl-3 pr-4 shadow-sm transition hover:shadow-md dark:border-slate-700/90 dark:bg-slate-900/70 dark:hover:border-slate-600 ${getCategoryCardClasses(agent.categoryLabel)}`}
+                  className={`flex flex-col rounded-2xl border border-neutral-200/90 bg-white py-4 pl-3 pr-4 shadow-sm transition hover:shadow-md dark:border-slate-700/90 dark:bg-slate-900/70 dark:hover:border-slate-600 ${getCategoryCardClasses(agent.categoryLabel)}`}
                 >
-                  <div className="flex gap-3">
+                  <div className="flex items-start gap-3">
                     <TeamAgentAvatar agent={agent} size="card" />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <h3 className="truncate text-base font-bold text-slate-900 dark:text-white">
+                        <h3
+                          className={`truncate text-base font-bold text-slate-900 dark:text-white ${nameMuted ?? ""}`}
+                        >
+                          {agent.emoji ? (
+                            <span className="mr-1" aria-hidden>
+                              {agent.emoji}
+                            </span>
+                          ) : null}
                           {agent.name}
                         </h3>
                         <StatusChip status={agent.status} />
                       </div>
-                      <p className="truncate text-xs font-medium text-sky-700 dark:text-sky-400">
+                      <p
+                        className={`truncate text-xs font-medium text-sky-700 dark:text-sky-400 ${roleMuted ?? ""}`}
+                      >
                         {agent.role}
+                      </p>
+                      <p
+                        className="mt-0.5 truncate font-mono text-[10px] text-slate-500 dark:text-neutral-500"
+                        title="Stable agent id (workspace / API)"
+                      >
+                        {agent.id}
                       </p>
                     </div>
                   </div>
@@ -478,54 +509,35 @@ export function TeamPageView({
         className="border-t border-neutral-200/80 bg-transparent py-10 dark:border-slate-800/80 lg:py-12"
       >
         <h2 className="text-lg font-bold text-slate-800 dark:text-neutral-200">
-          Build from scratch
+          Create an agent
         </h2>
         <p className="mt-1 max-w-xl text-xs text-slate-500 dark:text-neutral-500">
-          Add a new agent — blank, from a template, or by cloning.
+          Open the builder to set name, role, avatar, personality, and skills.
+          Pick a template or start blank — everything saves to this browser.
         </p>
-        <div className="mt-6 grid gap-3 md:grid-cols-3">
-          {(
-            [
-              {
-                title: "Start Blank",
-                desc: "Empty profile — you define role, tools, and behavior.",
-                cta: "Start blank",
-                action: () => toastStub("Start blank agent"),
-              },
-              {
-                title: "Use Template",
-                desc: "Start from research, support, or sales archetypes.",
-                cta: "Browse templates",
-                action: () => toastStub("Templates gallery"),
-              },
-              {
-                title: "Clone agent",
-                desc: "Copy settings and skills from an existing agent.",
-                cta: "Clone",
-                action: () => toastStub("Clone from roster"),
-              },
-            ] as const
-          ).map((card, idx) => (
-            <div
-              key={card.title}
-              className="flex flex-col rounded-2xl border border-neutral-200/90 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/70"
-            >
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                {card.title}
-              </h3>
-              <p className="mt-1 flex-1 text-xs leading-snug text-slate-600 dark:text-neutral-400">
-                {card.desc}
-              </p>
-              <button
-                type="button"
-                onClick={card.action}
-                className={`${btnOutline} mt-3 self-start`}
-                data-create-agent-primary={idx === 0 ? "true" : undefined}
-              >
-                {card.cta}
-              </button>
-            </div>
-          ))}
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button
+            type="button"
+            className={btnPrimary}
+            data-create-agent-primary="true"
+            onClick={openCreateSheet}
+          >
+            Open create agent
+          </button>
+          <button
+            type="button"
+            className={btnSecondary}
+            onClick={openCreateSheet}
+          >
+            Templates &amp; skills
+          </button>
+          <button
+            type="button"
+            className={btnOutline}
+            onClick={() => toastStub("Clone from roster — coming soon")}
+          >
+            Clone agent
+          </button>
         </div>
       </section>
 
@@ -584,9 +596,10 @@ export function TeamPageView({
         ) : (
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filteredSkills.map((skill: ImportableSkill) => (
-              <div
+              <Link
                 key={skill.id}
-                className="flex flex-col rounded-2xl border border-neutral-200/90 bg-gradient-to-b from-white to-neutral-50/80 p-5 shadow-sm dark:border-slate-700 dark:from-slate-900 dark:to-slate-900/80"
+                href={skillDetailHref(skill.id)}
+                className="flex flex-col rounded-2xl border border-neutral-200/90 bg-gradient-to-b from-white to-neutral-50/80 p-5 shadow-sm transition hover:border-sky-300/80 hover:shadow-md dark:border-slate-700 dark:from-slate-900 dark:to-slate-900/80 dark:hover:border-sky-800/80"
               >
                 <div className="flex items-start gap-3">
                   <span
@@ -615,17 +628,12 @@ export function TeamPageView({
                   </span>
                   {skill.compatibility}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setImportMsg(`Imported “${skill.name}” (demo)`);
-                    toastStub(`Import skill: ${skill.id}`);
-                  }}
-                  className={`${btnPrimary} mt-4 w-full`}
+                <span
+                  className={`${btnPrimary} mt-4 inline-flex w-full items-center justify-center text-center`}
                 >
-                  Import
-                </button>
-              </div>
+                  View details
+                </span>
+              </Link>
             ))}
           </div>
         )}

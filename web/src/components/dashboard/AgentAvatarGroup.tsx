@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getAgentAvatarUrl, getAvatarAccentClasses } from "@/lib/agentAvatars";
+import { AvatarBubble } from "@/components/avatar/AvatarBubble";
+import { getAgentAvatarUrl } from "@/lib/agentAvatars";
+import { useResolvedAgentAccent } from "@/lib/nojo/useResolvedAgentAccent";
+import { useMemo } from "react";
 
 function initialsFromAgentName(name: string): string {
   const parts = name.replace(/ Agent$/i, "").split(/\s+/).filter(Boolean);
@@ -14,19 +16,51 @@ function initialsFromAgentName(name: string): string {
 const bubbleBase =
   "flex shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ring-2 ring-white";
 
+function AgentAvatarBubble({ name, avatarKey }: { name: string; avatarKey: string }) {
+  const visual = useResolvedAgentAccent(avatarKey);
+  const src = useMemo(
+    () => getAgentAvatarUrl(avatarKey, { withDefault: true }),
+    [avatarKey],
+  );
+
+  const category = visual.kind === "palette" ? visual.categoryLabel : undefined;
+  const accent = visual.kind === "palette" ? visual.avatarAccent : undefined;
+
+  return (
+    <AvatarBubble
+      label={initialsFromAgentName(name)}
+      accentKey={avatarKey}
+      title={name}
+      src={src}
+      size={28}
+      category={category}
+      avatarAccent={accent}
+      className="text-[10px]"
+    />
+  );
+}
+
 export function AgentAvatarGroup({
   agents,
+  agentIds,
   max = 4,
 }: {
   agents: string[];
+  /** Same order as agents; canonical id for avatar map. Omit for legacy name-only keys. */
+  agentIds?: readonly string[];
   max?: number;
 }) {
   const shown = agents.slice(0, max);
   const extra = agents.length - max;
+  const ids = agentIds ?? [];
   return (
     <div className="flex items-center -space-x-2" title={agents.join(", ")}>
       {shown.map((name, i) => (
-        <AgentAvatarBubble key={`${name}-${i}`} name={name} />
+        <AgentAvatarBubble
+          key={`${ids[i] ?? name}-${i}`}
+          name={name}
+          avatarKey={ids[i] ?? name}
+        />
       ))}
       {extra > 0 ? (
         <span
@@ -36,45 +70,5 @@ export function AgentAvatarGroup({
         </span>
       ) : null}
     </div>
-  );
-}
-
-function AgentAvatarBubble({ name }: { name: string }) {
-  const [src, setSrc] = useState<string | null>(null);
-  const { frame, fallback } = getAvatarAccentClasses(name);
-  const size = 28;
-  const pad = 2;
-  const inner = size - pad * 2;
-
-  useEffect(() => {
-    setSrc(getAgentAvatarUrl(name, { withDefault: true }));
-  }, [name]);
-
-  const hoverClasses =
-    "transition-transform duration-200 ease-out hover:scale-110";
-  if (src) {
-    return (
-      <span
-        title={name}
-        className={`inline-flex size-7 shrink-0 items-center justify-center rounded-full ring-2 ring-white ${hoverClasses} ${frame}`}
-        style={{ padding: pad }}
-      >
-        <img
-          src={src}
-          alt={name}
-          width={inner}
-          height={inner}
-          className="rounded-full object-cover"
-          style={{ width: inner, height: inner, minWidth: inner, minHeight: inner }}
-          loading="lazy"
-        />
-      </span>
-    );
-  }
-
-  return (
-    <span className={`${bubbleBase} size-7 ${hoverClasses} ${fallback}`} title={name}>
-      {initialsFromAgentName(name)}
-    </span>
   );
 }

@@ -19,3 +19,6 @@ web/.env*
 # Ignore local database artifacts (common with Prisma SQLite)
 web/prisma/*.db
 
+# Persisted server-side OpenClaw device identity (contains private key seed)
+web/.openclaw/
+

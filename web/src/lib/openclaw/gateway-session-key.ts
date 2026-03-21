@@ -12,7 +12,11 @@ export function buildWorkspaceGatewaySessionKey(opts: {
   conversationId: string;
   agentId?: string;
 }): string {
-  const agent = (opts.agentId?.trim() || "main").slice(0, 120);
+  const agentRaw = opts.agentId?.trim() ?? "";
+  if (!agentRaw) {
+    throw new Error("Missing agentId for workspace gateway session key.");
+  }
+  const agent = agentRaw.slice(0, 120);
   const uid = opts.userId.trim();
   const cid = opts.conversationId.trim();
   const raw = `agent:${agent}:webchat:direct:nojo:${uid}:${cid}`;

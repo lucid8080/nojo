@@ -1,64 +1,103 @@
 "use client";
 
 import { JobCard } from "@/components/dashboard/JobCard";
+import type { Job } from "@/data/agentJobsMock";
 import {
-  BOARD_JOB_IDS,
-  DEMO_APPEND_LINES,
-  cloneJob,
-  jobFromSeed,
-  type Job,
-  type TaskLogEntry,
-} from "@/data/agentJobsMock";
+  getConversation,
+  getJobContextForConversation,
+  getMessagesForConversation,
+  workspaceConversations,
+} from "@/data/workspaceChatMock";
+import { NOJO_WORKSPACE_AGENTS } from "@/data/nojoWorkspaceRoster";
 import { JOB_FOCUS_EVENT, type JobFocusEventDetail } from "@/lib/jobFocusEvent";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  projectWorkspaceConversationToJob,
+  type WorkspaceBoardRunRow,
+} from "@/lib/nojo/workspaceBoardProjection";
+import { useHydratedTeamAgents } from "@/lib/nojo/useHydratedTeamAgents";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-const DEMO_INTERVAL_MS = 2600;
 const SCROLL_EDGE_PX = 8;
-/** Demo animates the rightmost trio (visible when strip is scrolled to the end). */
-const DEMO_FOCUS_IDS: [string, string, string] = ["j6", "j7", "j8"];
+const RUNS_POLL_MS = 45_000;
 
-function refillDemoAppends(id: string): TaskLogEntry[] {
-  return (DEMO_APPEND_LINES[id] ?? []).map((e, i) => ({
-    ...e,
-    id: `${id}-demo-${i}-${Math.random().toString(36).slice(2, 7)}`,
-  }));
-}
+/** Active workspace threads for the board (non-archived), same order as inbox. */
+export const WORKSPACE_BOARD_CONVERSATION_IDS = workspaceConversations
+  .filter((c) => !c.archived)
+  .map((c) => c.id);
 
-function initialJobsMap(): Record<string, Job> {
-  const m: Record<string, Job> = {};
-  for (const id of BOARD_JOB_IDS) {
-    m[id] = jobFromSeed(id);
+function groupRunsByConversation(runs: WorkspaceBoardRunRow[]): Map<string, WorkspaceBoardRunRow[]> {
+  const map = new Map<string, WorkspaceBoardRunRow[]>();
+  for (const r of runs) {
+    const cid = r.conversationId?.trim();
+    if (!cid) continue;
+    if (!map.has(cid)) map.set(cid, []);
+    map.get(cid)!.push(r);
   }
-  return m;
+  return map;
 }
 
-/**
- * Live agent job board — horizontal strip of all active jobs, scroll + arrows.
- * demoMode: live log appends + progress on the rightmost jobs (j6–j8); no conveyor swap.
- */
-export function JobBoard({ demoMode = true }: { demoMode?: boolean }) {
+export function JobBoard() {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const jobsRef = useRef<Record<string, Job>>(initialJobsMap());
-  const [jobs, setJobs] = useState<Record<string, Job>>(() => initialJobsMap());
-  const [newTaskIds, setNewTaskIds] = useState<Set<string>>(new Set());
-  const appendPools = useRef<Record<string, TaskLogEntry[]>>({});
-  const reducedMotion = useRef(false);
-  const userScrolledRef = useRef(false);
-  const demoResetScheduled = useRef(false);
-  const [focusedJobId, setFocusedJobId] = useState<string | null>(null);
-  const [canScrollPrev, setCanScrollPrev] = useState(false);
-  const [canScrollNext, setCanScrollNext] = useState(false);
-  useEffect(() => {
-    jobsRef.current = jobs;
-  }, [jobs]);
+  const teamAgents = useHydratedTeamAgents(NOJO_WORKSPACE_AGENTS);
+  const resolveAgentName = useCallback(
+    (agentId: string) => teamAgents.find((a) => a.id === agentId)?.name ?? agentId,
+    [teamAgents],
+  );
 
-  useEffect(() => {
-    for (const id of DEMO_FOCUS_IDS) {
-      if (!appendPools.current[id]?.length) {
-        appendPools.current[id] = refillDemoAppends(id);
+  const [runsByConversation, setRunsByConversation] = useState<
+    Map<string, WorkspaceBoardRunRow[]>
+  >(() => new Map());
+  const [runsFetchOk, setRunsFetchOk] = useState(false);
+
+  const fetchRuns = useCallback(async () => {
+    try {
+      const res = await fetch("/api/openclaw/runs");
+      if (res.status === 401) {
+        setRunsFetchOk(false);
+        return;
       }
+      const json = (await res.json()) as {
+        success?: boolean;
+        runs?: WorkspaceBoardRunRow[];
+      };
+      if (res.ok && json?.success && Array.isArray(json.runs)) {
+        setRunsByConversation(groupRunsByConversation(json.runs));
+        setRunsFetchOk(true);
+      } else {
+        setRunsFetchOk(false);
+      }
+    } catch {
+      setRunsFetchOk(false);
     }
   }, []);
+
+  useEffect(() => {
+    void fetchRuns();
+    const id = window.setInterval(() => void fetchRuns(), RUNS_POLL_MS);
+    return () => window.clearInterval(id);
+  }, [fetchRuns]);
+
+  const jobs = useMemo(() => {
+    const m: Record<string, Job> = {};
+    for (const id of WORKSPACE_BOARD_CONVERSATION_IDS) {
+      const c = getConversation(id);
+      if (!c) continue;
+      const runs = runsByConversation.get(id) ?? [];
+      m[id] = projectWorkspaceConversationToJob(c, {
+        jobContext: getJobContextForConversation(id),
+        messages: getMessagesForConversation(id),
+        runsForConversation: runs,
+        resolveAgentName,
+      });
+    }
+    return m;
+  }, [resolveAgentName, runsByConversation]);
+
+  const [focusedConversationId, setFocusedConversationId] = useState<string | null>(null);
+  const [canScrollPrev, setCanScrollPrev] = useState(false);
+  const [canScrollNext, setCanScrollNext] = useState(false);
+  const reducedMotion = useRef(false);
+  const userScrolledRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -68,14 +107,16 @@ export function JobBoard({ demoMode = true }: { demoMode?: boolean }) {
   useEffect(() => {
     function onJobFocus(e: Event) {
       const detail = (e as CustomEvent<JobFocusEventDetail>).detail;
-      const jobId = detail?.jobId;
-      if (!jobId) return;
+      const conversationId = detail?.conversationId;
+      if (!conversationId) return;
 
-      setFocusedJobId(jobId);
+      setFocusedConversationId(conversationId);
 
       const container = scrollRef.current;
       if (container) {
-        const node = container.querySelector<HTMLElement>(`[data-job-id="${jobId}"]`);
+        const node = container.querySelector<HTMLElement>(
+          `[data-job-id="${conversationId}"]`,
+        );
         if (node) {
           const nodeLeft = node.offsetLeft;
           const centeredLeft =
@@ -89,7 +130,7 @@ export function JobBoard({ demoMode = true }: { demoMode?: boolean }) {
       }
 
       window.setTimeout(() => {
-        setFocusedJobId((cur) => (cur === jobId ? null : cur));
+        setFocusedConversationId((cur) => (cur === conversationId ? null : cur));
       }, 2300);
     }
 
@@ -144,87 +185,6 @@ export function JobBoard({ demoMode = true }: { demoMode?: boolean }) {
     });
   }, []);
 
-  useEffect(() => {
-    if (!demoMode) return;
-
-    const tick = () => {
-      const [id0, id1, id2] = DEMO_FOCUS_IDS;
-
-      setJobs((prev) => {
-        const next: Record<string, Job> = { ...prev };
-        const j0 = cloneJob(prev[id0]!);
-        const j1 = cloneJob(prev[id1]!);
-        const j2 = cloneJob(prev[id2]!);
-
-        const bump = (j: Job, pct: number): Job => {
-          let status = j.status;
-          const p = Math.min(100, pct);
-          if (p >= 90 && status !== "Queued" && status !== "Blocked" && status !== "Completed") {
-            status = "Reviewing";
-          }
-          if (p >= 100) {
-            status = "Completed";
-          }
-          const foot = { ...j.footer, completionPct: p >= 100 ? 100 : p };
-          if (status === "Completed") {
-            foot.eta = "Delivered";
-          }
-          return { ...j, status, footer: foot };
-        };
-
-        if (j0.status !== "Completed" && j0.footer.completionPct < 100) {
-          const p0 = j0.footer.completionPct;
-          next[id0] = bump(j0, p0 + 5);
-        } else {
-          next[id0] = j0;
-        }
-
-        next[id1] = j1;
-        next[id2] = j2;
-
-        if (Math.random() > 0.4) {
-          const idx = Math.random() < 0.38 ? 0 : Math.random() < 0.5 ? 1 : 2;
-          const focusId = DEMO_FOCUS_IDS[idx]!;
-          const job = cloneJob(next[focusId]!);
-          if (job.status !== "Completed") {
-            let pool = appendPools.current[job.id] ?? refillDemoAppends(job.id);
-            if (pool.length === 0) pool = refillDemoAppends(job.id);
-            appendPools.current[job.id] = pool;
-            const [line, ...rest] = pool;
-            if (line) {
-              appendPools.current[job.id] = rest.length ? rest : refillDemoAppends(job.id);
-              const newLine = { ...line, id: `${job.id}-live-${Date.now()}` };
-              const tasks = job.tasks.map((t) =>
-                t.state === "running" && Math.random() > 0.65 ? { ...t, state: "done" as const } : t,
-              );
-              next[focusId] = { ...job, tasks: [...tasks, newLine] };
-              setNewTaskIds(new Set([newLine.id]));
-              window.setTimeout(() => setNewTaskIds(new Set()), 800);
-            }
-          }
-        }
-
-        if (next[id0]!.status === "Completed" && !demoResetScheduled.current) {
-          demoResetScheduled.current = true;
-          window.setTimeout(() => {
-            setJobs((p) => ({
-              ...p,
-              [id0]: jobFromSeed(id0),
-            }));
-            appendPools.current[id0] = refillDemoAppends(id0);
-            demoResetScheduled.current = false;
-          }, 2800);
-        }
-
-        jobsRef.current = next;
-        return next;
-      });
-    };
-
-    const id = window.setInterval(tick, DEMO_INTERVAL_MS);
-    return () => window.clearInterval(id);
-  }, [demoMode]);
-
   return (
     <div className="rounded-3xl border border-neutral-200/50 bg-gradient-to-br from-neutral-50/80 via-white/60 to-sky-50/30 p-4 shadow-sm dark:border-slate-700/50 dark:from-slate-900/60 dark:via-slate-900/40 dark:to-slate-900/60 dark:shadow-black/15 sm:p-6">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -239,9 +199,12 @@ export function JobBoard({ demoMode = true }: { demoMode?: boolean }) {
             Live job stream
           </h2>
           <p className="text-sm text-slate-600 dark:text-neutral-400">
-            Use arrows to scroll through active jobs; each card has the full execution log.
-            {demoMode ? (
-              <span className="ml-1 text-xs font-medium text-sky-600 dark:text-sky-400">Demo</span>
+            Scroll through active Agent Workspace threads; each card mirrors inbox context and
+            messages.
+            {runsFetchOk ? (
+              <span className="ml-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                OpenClaw runs linked
+              </span>
             ) : null}
           </p>
         </div>
@@ -283,14 +246,18 @@ export function JobBoard({ demoMode = true }: { demoMode?: boolean }) {
           }}
           className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
-          {BOARD_JOB_IDS.map((id) => (
+          {WORKSPACE_BOARD_CONVERSATION_IDS.map((id) => (
             <div
               key={id}
               data-job-card-slot
               data-job-id={id}
               className="job-slot h-full w-[min(100%,22rem)] shrink-0 snap-start sm:w-[calc((100%-2rem)/3)] lg:min-h-[32rem]"
             >
-              <JobCard job={jobs[id]!} newTaskIds={newTaskIds} isFocused={focusedJobId === id} />
+              <JobCard
+                job={jobs[id]!}
+                isFocused={focusedConversationId === id}
+                workspaceConversationId={id}
+              />
             </div>
           ))}
         </div>

@@ -1,14 +1,18 @@
 /**
- * Fetches agent markdown from msitarzewski/agency-agents and writes agencyAgents.json.
- * Optional: GITHUB_TOKEN env for higher API rate limits (tree fetch only).
- * Raw file fetches use cdn raw.githubusercontent.com (no token needed for public repo).
+ * Fetches agent markdown from msitarzewski/agency-agents, writes full files under
+ * src/data/agency-agents-bundled/ (mirrored paths) and an enriched agencyAgents.json index.
+ * Optional: GITHUB_TOKEN for higher API rate limits (tree + commits).
+ * Raw file fetches use raw.githubusercontent.com (no token needed for public repo).
  */
 import { writeFileSync, mkdirSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
+import matter from "gray-matter";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const OUT = join(__dirname, "../src/data/agencyAgents.json");
+const WEB_ROOT = join(__dirname, "..");
+const OUT = join(WEB_ROOT, "src/data/agencyAgents.json");
+const BUNDLED_ROOT = join(WEB_ROOT, "src/data/agency-agents-bundled");
 
 const OWNER = "msitarzewski";
 const REPO = "agency-agents";
@@ -31,18 +35,6 @@ const AGENT_ROOTS = new Set([
   "testing",
 ]);
 
-function parseFrontmatter(text) {
-  const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!m) return { name: "", description: "" };
-  const block = m[1];
-  const name = (block.match(/^name:\s*(.+)$/m) || [])[1]?.trim() || "";
-  const desc = (block.match(/^description:\s*(.+)$/m) || [])[1]?.trim() || "";
-  return {
-    name: name.replace(/^["']|["']$/g, ""),
-    description: desc.replace(/^["']|["']$/g, ""),
-  };
-}
-
 function divisionToChipLabel(division) {
   return division.replace(/-/g, " ").toUpperCase();
 }
@@ -62,6 +54,24 @@ function isAgentMdPath(path) {
   return true;
 }
 
+/** JSON-serializable frontmatter (drops functions, etc.). */
+function jsonSafeFrontmatter(data) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return {};
+  const out = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (k === "__proto__" || k === "constructor") continue;
+    if (v === undefined || typeof v === "function" || typeof v === "symbol")
+      continue;
+    try {
+      JSON.stringify(v);
+      out[k] = v;
+    } catch {
+      out[k] = String(v);
+    }
+  }
+  return out;
+}
+
 async function fetchJson(url, headers) {
   const res = await fetch(url, { headers });
   if (!res.ok) throw new Error(`HTTP ${res.status} ${url}: ${await res.text()}`);
@@ -74,6 +84,27 @@ async function fetchText(url) {
   return res.text();
 }
 
+async function fetchRepoCommitSha(headers) {
+  const url = `https://api.github.com/repos/${OWNER}/${REPO}/commits/${BRANCH}?per_page=1`;
+  try {
+    const commits = await fetchJson(url, headers);
+    if (Array.isArray(commits) && commits[0]?.sha) return commits[0].sha;
+  } catch (e) {
+    console.warn("[sync-agency-agents] Could not fetch repo commit SHA:", e?.message);
+  }
+  return null;
+}
+
+function fileBaseName(filename) {
+  return filename.replace(/\.md$/i, "");
+}
+
+function writeBundledFile(relativePath, text) {
+  const outPath = join(BUNDLED_ROOT, ...relativePath.split("/"));
+  mkdirSync(dirname(outPath), { recursive: true });
+  writeFileSync(outPath, text, "utf8");
+}
+
 async function main() {
   const headers = {};
   if (process.env.GITHUB_TOKEN) {
@@ -81,34 +112,63 @@ async function main() {
     headers.Accept = "application/vnd.github+json";
   }
 
-  const treeUrl = `https://api.github.com/repos/${OWNER}/${REPO}/git/trees/${BRANCH}?recursive=1`;
+  const [tree, repoCommitSha] = await Promise.all([
+    fetchJson(
+      `https://api.github.com/repos/${OWNER}/${REPO}/git/trees/${BRANCH}?recursive=1`,
+      headers,
+    ),
+    fetchRepoCommitSha(headers),
+  ]);
+
   console.log("[sync-agency-agents] Fetching repo tree…");
-  const tree = await fetchJson(treeUrl, headers);
-  const paths = tree.tree
-    .filter((e) => e.type === "blob" && isAgentMdPath(e.path))
-    .map((e) => e.path)
-    .sort();
+  const blobEntries = tree.tree.filter(
+    (e) => e.type === "blob" && isAgentMdPath(e.path),
+  );
+  const paths = blobEntries.map((e) => e.path).sort();
+  const shaByPath = new Map(blobEntries.map((e) => [e.path, e.sha]));
 
   console.log(`[sync-agency-agents] Found ${paths.length} agent markdown files.`);
 
   async function loadOne(path) {
     const rawUrl = `https://raw.githubusercontent.com/${OWNER}/${REPO}/${BRANCH}/${path}`;
     const text = await fetchText(rawUrl);
-    const { name, description } = parseFrontmatter(text);
+    writeBundledFile(path, text);
+
     const parts = path.split("/");
     const division = parts[0];
-    const title =
-      name || fileBaseName(parts[parts.length - 1]).replace(/-/g, " ");
-    const desc =
-      description ||
-      "(No description in frontmatter — open on GitHub for full agent definition.)";
+    const baseTitle = fileBaseName(parts[parts.length - 1]).replace(/-/g, " ");
+
+    let fm = {};
+    let title = baseTitle;
+    let desc =
+      "(No description in frontmatter — see bundled content below.)";
+
+    try {
+      const parsed = matter(text);
+      fm = parsed.data && typeof parsed.data === "object" ? parsed.data : {};
+      if (typeof fm.name === "string" && fm.name.trim()) title = fm.name.trim();
+      if (typeof fm.description === "string" && fm.description.trim()) {
+        desc = fm.description.trim();
+      }
+    } catch (e) {
+      console.warn(
+        `[sync-agency-agents] gray-matter failed for ${path}:`,
+        e?.message ?? e,
+      );
+      desc =
+        "(Frontmatter could not be parsed — full markdown is still bundled below.)";
+    }
+
     return {
       id: path,
+      localContentPath: path,
       division,
       categoryLabel: categoryLabelForPath(parts),
       title,
       description: desc,
       githubUrl: `https://github.com/${OWNER}/${REPO}/blob/${BRANCH}/${path}`,
+      contentSha: shaByPath.get(path) ?? null,
+      frontmatter: jsonSafeFrontmatter(fm),
     };
   }
 
@@ -129,16 +189,15 @@ async function main() {
   const payload = {
     generatedAt: new Date().toISOString(),
     source: `https://github.com/${OWNER}/${REPO}`,
+    branch: BRANCH,
+    ...(repoCommitSha ? { repoCommitSha } : {}),
     agents,
   };
 
   mkdirSync(dirname(OUT), { recursive: true });
   writeFileSync(OUT, JSON.stringify(payload, null, 2), "utf8");
   console.log(`[sync-agency-agents] Wrote ${agents.length} agents to ${OUT}`);
-}
-
-function fileBaseName(filename) {
-  return filename.replace(/\.md$/i, "");
+  console.log(`[sync-agency-agents] Bundled markdown under ${BUNDLED_ROOT}`);
 }
 
 main().catch((e) => {

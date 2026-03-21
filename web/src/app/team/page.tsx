@@ -1,10 +1,10 @@
 import { TeamPageView } from "@/components/team/TeamPageView";
 import { TopNav } from "@/components/dashboard/TopNav";
+import { NOJO_WORKSPACE_AGENTS } from "@/data/nojoWorkspaceRoster";
 import {
   collaboratorAgents,
   headerNavItems,
 } from "@/data/dashboardSampleData";
-import { teamAgentsMock } from "@/data/teamPageMock";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -22,7 +22,7 @@ export default async function TeamPage({ searchParams }: Props) {
   const showEmpty = sp.empty === "1" || sp.empty === "true";
   const autoScrollToCreateAgent =
     sp.create === "1" || sp.create === "true";
-  const initialAgents = showEmpty ? [] : teamAgentsMock;
+  const baseRoster = showEmpty ? [] : NOJO_WORKSPACE_AGENTS;
 
   return (
     <div className="min-h-screen bg-neutral-100 text-slate-900 dark:bg-slate-950 dark:text-neutral-50">
@@ -31,7 +31,7 @@ export default async function TeamPage({ searchParams }: Props) {
       {/* Symmetric padding: no fixed left rail on this route (unlike --left-rail-offset layouts). */}
       <main className="mx-auto w-full max-w-[120rem] px-4 pb-16 pt-6 sm:px-6 lg:px-8 lg:pb-20 lg:pt-8">
         <TeamPageView
-          initialAgents={initialAgents}
+          baseRoster={baseRoster}
           collaboratorAgents={collaboratorAgents}
           autoScrollToCreateAgent={autoScrollToCreateAgent}
         />

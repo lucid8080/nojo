@@ -1,5 +1,6 @@
-import type { BoardJobId, JobStatus } from "@/data/agentJobsMock";
-import { JOB_SEEDS } from "@/data/agentJobsMock";
+import type { JobStatus } from "@/data/agentJobsMock";
+import { getConversation } from "@/data/workspaceChatMock";
+import { mapWorkspaceStatusToJobStatus } from "@/lib/nojo/workspaceBoardProjection";
 
 export type SmartSuggestionPriority = "high" | "medium" | "low";
 
@@ -17,8 +18,10 @@ export type SmartSuggestion = {
   description: string;
   priority: SmartSuggestionPriority;
   category: SmartSuggestionCategory;
-  relatedJobId: BoardJobId;
-  relatedJob: string;
+  /** Agent Workspace conversation id (same as work board cards). */
+  relatedConversationId: string;
+  /** Thread title for display. */
+  relatedThread: string;
   ctaLabel: string;
   dismissible: boolean;
   status: JobStatus;
@@ -26,92 +29,95 @@ export type SmartSuggestion = {
 
 type SuggestionTemplate = Omit<
   SmartSuggestion,
-  "relatedJob" | "status"
+  "relatedThread" | "status"
 >;
 
 const SUGGESTION_TEMPLATES: readonly SuggestionTemplate[] = [
   {
     id: "s-finalize-matching",
-    title: "Finalize matching",
+    title: "Finalize publish",
     description:
-      "Legal Intake Summary is ready for final agent-role confirmation and handoff review.",
+      "Q2 Enterprise positioning refresh is waiting on approval to publish v1.1 to the shared drive.",
     priority: "high",
     category: "Review",
-    relatedJobId: "j6",
+    relatedConversationId: "c1",
     ctaLabel: "Review now",
     dismissible: true,
   },
   {
     id: "s-flagged-segments",
-    title: "Review flagged segments",
+    title: "Review compliance flags",
     description:
-      "OCR and redaction checks detected possible privileged content needing verification.",
+      "Mira flagged a superlative in the enterprise copy — confirm citation or soften the claim.",
     priority: "high",
     category: "Quality Check",
-    relatedJobId: "j6",
+    relatedConversationId: "c1",
     ctaLabel: "Open log",
     dismissible: true,
   },
   {
     id: "s-verify-timeline",
-    title: "Verify extracted timeline",
+    title: "Confirm hiring brief scope",
     description:
-      "Confirm extracted party timeline points to ensure dates and events align with the exhibits.",
+      "Agent hiring brief for the SDR bot still needs Spanish coverage confirmed before drafting.",
     priority: "medium",
     category: "Review",
-    relatedJobId: "j6",
+    relatedConversationId: "c4",
     ctaLabel: "Verify now",
     dismissible: true,
   },
   {
     id: "s-resolve-queued-automation",
-    title: "Resolve queued automation",
+    title: "Unblock pipeline digest",
     description:
-      "CRM Workflow Automation is waiting on kickoff approval to start the next enrichment stage.",
+      "Pipeline health weekly digest is merging warehouse + CRM metrics — watch for stage merge errors.",
     priority: "medium",
     category: "Automation",
-    relatedJobId: "j7",
-    ctaLabel: "Approve flow",
+    relatedConversationId: "c2",
+    ctaLabel: "Open thread",
     dismissible: true,
   },
   {
     id: "s-approve-outreach-draft",
-    title: "Approve outreach draft",
+    title: "Pick onboarding subjects",
     description:
-      "Draft Outreach Campaign has a ready-to-send first email draft (subject + compliance pass).",
+      "Onboarding email sequence v3 has two subject-line options ready for your decision.",
     priority: "medium",
     category: "Communication",
-    relatedJobId: "j8",
-    ctaLabel: "Preview email",
+    relatedConversationId: "c7",
+    ctaLabel: "Choose subject",
     dismissible: true,
   },
   {
     id: "s-add-support-agent",
-    title: "Add support agent",
+    title: "Review support escalations",
     description:
-      "Outreach workflow volume suggests adding an extra agent for faster turnaround and QA coverage.",
+      "Support inbox triage shows several threads that may need human follow-up today.",
     priority: "low",
     category: "Staffing",
-    relatedJobId: "j8",
-    ctaLabel: "Assign agent",
+    relatedConversationId: "c3",
+    ctaLabel: "Open inbox",
     dismissible: true,
   },
 ];
 
 function buildSuggestion(template: SuggestionTemplate): SmartSuggestion {
-  const job = JOB_SEEDS[template.relatedJobId];
+  const c = getConversation(template.relatedConversationId);
+  const relatedThread = c?.jobTitle?.trim() || template.relatedConversationId;
+  const status: JobStatus = c
+    ? mapWorkspaceStatusToJobStatus(c.status)
+    : "In Progress";
   return {
     ...template,
-    relatedJob: job.title,
-    status: job.status,
+    relatedThread,
+    status,
   };
 }
 
 /**
  * MOCK DATA — replace with API-driven recommendations later.
- * Derived from the currently visible board jobs so copy stays realistic.
+ * Titles and status are derived from the same workspace seed as the inbox and work board.
  */
 export function getSmartSuggestionsMock(): SmartSuggestion[] {
   return SUGGESTION_TEMPLATES.map(buildSuggestion);
 }
-

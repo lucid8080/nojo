@@ -53,7 +53,7 @@ export function FeaturedSuggestionCard({
               Related job
             </p>
             <p className="truncate text-sm font-semibold text-slate-800 dark:text-neutral-200">
-              {suggestion.relatedJob}
+              {suggestion.relatedThread}
             </p>
           </div>
 

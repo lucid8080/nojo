@@ -1,11 +1,33 @@
 "use client";
 
-import type { JobContext, WorkspaceAgent } from "@/data/workspaceChatMock";
+import { useWorkspaceAgent } from "@/components/workspace/AgentIdentityContext";
+import type { JobContext } from "@/data/workspaceChatMock";
 import { workspaceAgents } from "@/data/workspaceChatMock";
 import { WorkspaceAgentAvatar } from "./WorkspaceAgentAvatar";
 
-function agentById(id: string): WorkspaceAgent | undefined {
-  return workspaceAgents.find((a) => a.id === id);
+function AssignedAgentChip({ id }: { id: string }) {
+  const merged = useWorkspaceAgent(id);
+  const a = merged ?? workspaceAgents.find((x) => x.id === id);
+  if (!a) return null;
+  return (
+    <span
+      className="inline-flex items-center gap-2 rounded-full border border-neutral-200/80 bg-white py-1 pl-1 pr-3 text-xs font-medium shadow-sm dark:border-slate-600 dark:bg-slate-800"
+    >
+      <WorkspaceAgentAvatar agent={a} size={28} />
+      {a.name}
+    </span>
+  );
+}
+
+function SubtaskAssigneeName({ assigneeId }: { assigneeId: string }) {
+  const merged = useWorkspaceAgent(assigneeId);
+  const a = merged ?? workspaceAgents.find((x) => x.id === assigneeId);
+  if (!a) return null;
+  return (
+    <p className="text-[10px] text-slate-400 dark:text-neutral-500">
+      {a.name}
+    </p>
+  );
 }
 
 export function JobContextPanel({ context }: { context: JobContext | null }) {
@@ -40,19 +62,9 @@ export function JobContextPanel({ context }: { context: JobContext | null }) {
             Assigned agents
           </p>
           <div className="flex flex-wrap gap-2">
-            {context.agentIds.map((id) => {
-              const a = agentById(id);
-              if (!a) return null;
-              return (
-                <span
-                  key={id}
-                  className="inline-flex items-center gap-2 rounded-full border border-neutral-200/80 bg-white py-1 pl-1 pr-3 text-xs font-medium shadow-sm dark:border-slate-600 dark:bg-slate-800"
-                >
-                  <WorkspaceAgentAvatar agent={a} size={28} />
-                  {a.name}
-                </span>
-              );
-            })}
+            {context.agentIds.map((id) => (
+              <AssignedAgentChip key={id} id={id} />
+            ))}
           </div>
         </div>
         <div className="flex items-center justify-between rounded-xl border border-neutral-200/80 bg-neutral-50/80 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/50">
@@ -107,11 +119,7 @@ export function JobContextPanel({ context }: { context: JobContext | null }) {
           Subtasks
         </p>
         <ul className="space-y-2">
-          {context.subtasks.map((s) => {
-            const assignee = s.assigneeAgentId
-              ? agentById(s.assigneeAgentId)
-              : undefined;
-            return (
+          {context.subtasks.map((s) => (
               <li
                 key={s.id}
                 className="flex items-start gap-2 rounded-xl border border-neutral-200/60 bg-white/80 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/40"
@@ -132,15 +140,12 @@ export function JobContextPanel({ context }: { context: JobContext | null }) {
                   >
                     {s.title}
                   </p>
-                  {assignee ? (
-                    <p className="text-[10px] text-slate-400 dark:text-neutral-500">
-                      {assignee.name}
-                    </p>
+                  {s.assigneeAgentId ? (
+                    <SubtaskAssigneeName assigneeId={s.assigneeAgentId} />
                   ) : null}
                 </div>
               </li>
-            );
-          })}
+            ))}
         </ul>
       </div>
 

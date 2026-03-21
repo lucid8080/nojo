@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionUserId } from "@/lib/auth-server";
 import { OpenClawError } from "@/lib/openclaw/client";
 import { getOpenClawRoomBridge } from "@/lib/openclaw/openclaw-chat-bridge";
+import { composeNojoSharedContextPrompt } from "@/lib/nojo/nojoSharedContext";
+import {
+  buildNovaContentQaPayload,
+  ensureNojoAgentIdentityScaffold,
+} from "@/lib/nojo/ensureNojoAgentIdentityScaffold";
+import { canonicalizeAgentId } from "@/lib/nojo/agentIdCanonicalization";
 
 export const runtime = "nodejs";
 
@@ -10,6 +16,7 @@ type Body = {
   conversationId?: unknown;
   agentId?: unknown;
   idempotencyKey?: unknown;
+  isFirstUserMessage?: unknown;
 };
 
 function randomIdempotencyKey() {
@@ -47,19 +54,86 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const agentId = typeof body.agentId === "string" ? body.agentId.trim() : undefined;
+    const agentIdRaw = typeof body.agentId === "string" ? body.agentId.trim() : "";
+    if (!agentIdRaw) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Missing agentId. Nojo chat requires an explicit project agent id (e.g. nojo-main).",
+        },
+        { status: 400 },
+      );
+    }
+    const canonical = canonicalizeAgentId(agentIdRaw);
+    const agentId = canonical.effectiveAgentId;
+    const isFirstUserMessage = body.isFirstUserMessage === true;
     const idempotencyKey =
       typeof body.idempotencyKey === "string" && body.idempotencyKey.trim() !== ""
         ? body.idempotencyKey.trim()
         : randomIdempotencyKey();
 
+    const scaffold = await ensureNojoAgentIdentityScaffold({ agentId });
+    const novaContentQa =
+      agentId === "nojo-content" ? buildNovaContentQaPayload(scaffold) : undefined;
+
+    console.info("[openclaw-qa][send.identity]", {
+      requestedAgentId: canonical.requestedAgentId,
+      effectiveAgentId: canonical.effectiveAgentId,
+      matchedNojoAgent: canonical.matchedNojoAgent,
+      matchedLegacyAlias: canonical.matchedLegacyAlias,
+      legacyAliasUsed: canonical.legacyAliasUsed,
+      isFirstUserMessage,
+      identityScaffoldChecked: true,
+      identityScaffoldSeeded: scaffold.seeded,
+      identityScaffoldSeedFiles: scaffold.seededFiles,
+      identityScaffoldAgentId: agentId,
+      scaffoldSkippedBecauseFilesExist: scaffold.scaffoldSkippedBecauseFilesExist,
+      identityScaffoldRuntimeWorkspace: scaffold.runtimeWorkspaceAbsPath,
+      identityScaffoldConfiguredAgentsRoot: scaffold.configuredAgentsRoot,
+      identityScaffoldTemplateRootResolved: scaffold.templateRootResolved,
+      identityScaffoldFileReports: scaffold.fileReports,
+      identityScaffoldRuntimeFileSnapshot: scaffold.runtimeFileSnapshot,
+      identityScaffoldRuntimeIdentityFingerprint: scaffold.runtimeIdentityFingerprint,
+      identityScaffoldGenericFallbackRisk: scaffold.genericFallbackRisk,
+      preExistingNonEmptyFiles: scaffold.preExistingNonEmptyFiles,
+      ...(novaContentQa ? { novaContentQa } : {}),
+    });
+
     const bridge = getOpenClawRoomBridge({ userId, conversationId, agentId });
-    await bridge.sendUserMessage(prompt, idempotencyKey);
+    const composed = await composeNojoSharedContextPrompt({
+      agentId,
+      prompt,
+      isFirstUserMessage,
+    });
+    const promptToSend = composed.isNojoAgent ? composed.composedPrompt : prompt;
+    await bridge.sendUserMessage(promptToSend, idempotencyKey);
 
     return NextResponse.json({
       success: true,
       sessionKey: bridge.sessionKey,
       idempotencyKey,
+      isFirstUserMessage,
+      firstTurnIdentityFallbackApplied: composed.firstTurnIdentityFallbackApplied,
+      // TEMP(QA): remove after runtime scaffold verification signoff.
+      requestedAgentId: canonical.requestedAgentId,
+      effectiveAgentId: canonical.effectiveAgentId,
+      matchedNojoAgent: canonical.matchedNojoAgent,
+      matchedLegacyAlias: canonical.matchedLegacyAlias,
+      legacyAliasUsed: canonical.legacyAliasUsed,
+      identityScaffoldChecked: true,
+      identityScaffoldSeeded: scaffold.seeded,
+      identityScaffoldSeedFiles: scaffold.seededFiles,
+      identityScaffoldAgentId: agentId,
+      scaffoldSkippedBecauseFilesExist: scaffold.scaffoldSkippedBecauseFilesExist,
+      identityScaffoldRuntimeWorkspace: scaffold.runtimeWorkspaceAbsPath,
+      identityScaffoldConfiguredAgentsRoot: scaffold.configuredAgentsRoot,
+      identityScaffoldTemplateRootResolved: scaffold.templateRootResolved,
+      identityScaffoldFileReports: scaffold.fileReports,
+      identityScaffoldRuntimeFileSnapshot: scaffold.runtimeFileSnapshot,
+      identityScaffoldRuntimeIdentityFingerprint: scaffold.runtimeIdentityFingerprint,
+      identityScaffoldGenericFallbackRisk: scaffold.genericFallbackRisk,
+      preExistingNonEmptyFiles: scaffold.preExistingNonEmptyFiles,
+      ...(novaContentQa ? { novaContentQa } : {}),
     });
   } catch (err) {
     if (err instanceof OpenClawError && err.code === "CONFIG") {

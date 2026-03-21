@@ -163,6 +163,28 @@ const AVATAR_FRAME: Record<CategoryColorName, string> = {
   slate: "bg-slate-200 dark:bg-slate-700/50",
 };
 
+/**
+ * Solid `bg-*-500` classes for roster `avatarClass` when user picks an accent
+ * (Create agent / team metadata).
+ */
+export const AVATAR_ACCENT_BG_500: Record<CategoryColorName, string> = {
+  indigo: "bg-indigo-500",
+  pink: "bg-pink-500",
+  blue: "bg-blue-500",
+  purple: "bg-purple-500",
+  orange: "bg-orange-500",
+  amber: "bg-amber-500",
+  cyan: "bg-cyan-500",
+  teal: "bg-teal-500",
+  green: "bg-green-500",
+  violet: "bg-violet-500",
+  stone: "bg-stone-500",
+  sky: "bg-sky-500",
+  emerald: "bg-emerald-500",
+  red: "bg-red-500",
+  slate: "bg-slate-500",
+};
+
 const AVATAR_FALLBACK: Record<CategoryColorName, string> = {
   indigo: "bg-indigo-200 text-indigo-950 dark:bg-indigo-900/60 dark:text-indigo-200",
   pink: "bg-pink-200 text-pink-950 dark:bg-pink-900/60 dark:text-pink-200",
@@ -187,6 +209,69 @@ export function getCategoryAvatarFrameClass(category: string): string {
 
 export function getCategoryAvatarFallbackClass(category: string): string {
   return AVATAR_FALLBACK[getCategoryColor(category)];
+}
+
+const CATEGORY_COLOR_NAME_SET = new Set<string>([
+  "indigo",
+  "pink",
+  "blue",
+  "purple",
+  "orange",
+  "amber",
+  "cyan",
+  "teal",
+  "green",
+  "violet",
+  "stone",
+  "sky",
+  "emerald",
+  "red",
+  "slate",
+]);
+
+export function isCategoryColorName(s: string): s is CategoryColorName {
+  return CATEGORY_COLOR_NAME_SET.has(s);
+}
+
+/** All palette keys for avatar ring / initials (picker UI). */
+export const AVATAR_ACCENT_PALETTE: readonly CategoryColorName[] = [
+  "sky",
+  "emerald",
+  "violet",
+  "cyan",
+  "blue",
+  "indigo",
+  "purple",
+  "pink",
+  "orange",
+  "amber",
+  "teal",
+  "green",
+  "red",
+  "stone",
+  "slate",
+];
+
+export function resolveAvatarAccentColor(
+  categoryLabel: string,
+  accentOverride?: CategoryColorName | null,
+): CategoryColorName {
+  if (accentOverride && AVATAR_FRAME[accentOverride]) return accentOverride;
+  return getCategoryColor(categoryLabel);
+}
+
+export function getAgentAvatarFrameClassFromAgent(agent: {
+  categoryLabel: string;
+  avatarAccent?: CategoryColorName | null;
+}): string {
+  return AVATAR_FRAME[resolveAvatarAccentColor(agent.categoryLabel, agent.avatarAccent)];
+}
+
+export function getAgentAvatarFallbackClassFromAgent(agent: {
+  categoryLabel: string;
+  avatarAccent?: CategoryColorName | null;
+}): string {
+  return AVATAR_FALLBACK[resolveAvatarAccentColor(agent.categoryLabel, agent.avatarAccent)];
 }
 
 /** Tailwind 500-aligned hex for Recharts (deterministic per category) */

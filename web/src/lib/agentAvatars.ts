@@ -1,7 +1,8 @@
 export type AgentAvatarMap = Record<string, string>;
 
 const STORAGE_KEY = "agentAvatarMapV1";
-const DEFAULT_AVATAR_COUNT = 18;
+/** Number of default avatar files (`1.png` … `${n}.png`) under `/avatar/`. */
+export const DEFAULT_AVATAR_COUNT = 18;
 
 export function normalizeAgentKey(input: string) {
   return input.trim().toLowerCase();

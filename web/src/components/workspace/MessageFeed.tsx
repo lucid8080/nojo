@@ -1,18 +1,43 @@
 "use client";
 
-import type { WorkspaceMessage } from "@/data/workspaceChatMock";
+import { useWorkspaceAgent } from "@/components/workspace/AgentIdentityContext";
+import type { WorkspaceAgent, WorkspaceMessage } from "@/data/workspaceChatMock";
+import type { ReactNode, RefObject } from "react";
 import { workspaceAgents } from "@/data/workspaceChatMock";
+import { AgentTypingRow } from "./AgentTypingRow";
 import { AgentLogCard } from "./AgentLogCard";
 import { ApprovalCard } from "./ApprovalCard";
 import { DeliverableCard } from "./DeliverableCard";
 import { MessageBubble } from "./MessageBubble";
 import { SystemMessage } from "./SystemMessage";
 
-function agent(id: string) {
+function staticAgent(id: string): WorkspaceAgent | undefined {
   return workspaceAgents.find((a) => a.id === id);
 }
 
-export function MessageFeed({ messages }: { messages: WorkspaceMessage[] }) {
+function ResolveAgent({
+  id,
+  children,
+}: {
+  id: string;
+  children: (agent: WorkspaceAgent | undefined) => ReactNode;
+}) {
+  const merged = useWorkspaceAgent(id);
+  const agent = merged ?? staticAgent(id);
+  return <>{children(agent)}</>;
+}
+
+export function MessageFeed({
+  messages,
+  bottomAnchorRef,
+  showAgentTypingRow,
+  typingAgentId,
+}: {
+  messages: WorkspaceMessage[];
+  bottomAnchorRef?: RefObject<HTMLDivElement | null>;
+  showAgentTypingRow?: boolean;
+  typingAgentId?: string;
+}) {
   return (
     <div className="space-y-4 px-3 py-4 sm:px-5">
       {messages.map((m) => {
@@ -28,14 +53,17 @@ export function MessageFeed({ messages }: { messages: WorkspaceMessage[] }) {
             );
           case "agent":
             return (
-              <MessageBubble
-                key={m.id}
-                variant="agent"
-                body={m.body}
-                createdAt={m.createdAt}
-                agent={agent(m.agentId)}
-                agentStatus={m.agentStatus}
-              />
+              <ResolveAgent key={m.id} id={m.agentId}>
+                {(agent) => (
+                  <MessageBubble
+                    variant="agent"
+                    body={m.body}
+                    createdAt={m.createdAt}
+                    agent={agent}
+                    agentStatus={m.agentStatus}
+                  />
+                )}
+              </ResolveAgent>
             );
           case "system":
             return (
@@ -48,42 +76,80 @@ export function MessageFeed({ messages }: { messages: WorkspaceMessage[] }) {
               />
             );
           case "tool_log":
+            if (!m.agentId) {
+              return (
+                <AgentLogCard
+                  key={m.id}
+                  toolName={m.toolName}
+                  command={m.command}
+                  outputSnippet={m.outputSnippet}
+                  success={m.success}
+                  createdAt={m.createdAt}
+                  agent={undefined}
+                />
+              );
+            }
             return (
-              <AgentLogCard
-                key={m.id}
-                toolName={m.toolName}
-                command={m.command}
-                outputSnippet={m.outputSnippet}
-                success={m.success}
-                createdAt={m.createdAt}
-                agent={m.agentId ? agent(m.agentId) : undefined}
-              />
+              <ResolveAgent key={m.id} id={m.agentId}>
+                {(agent) => (
+                  <AgentLogCard
+                    toolName={m.toolName}
+                    command={m.command}
+                    outputSnippet={m.outputSnippet}
+                    success={m.success}
+                    createdAt={m.createdAt}
+                    agent={agent}
+                  />
+                )}
+              </ResolveAgent>
             );
           case "deliverable":
+            if (!m.agentId) {
+              return (
+                <DeliverableCard
+                  key={m.id}
+                  fileName={m.fileName}
+                  fileType={m.fileType}
+                  version={m.version}
+                  createdAt={m.createdAt}
+                  agent={undefined}
+                />
+              );
+            }
             return (
-              <DeliverableCard
-                key={m.id}
-                fileName={m.fileName}
-                fileType={m.fileType}
-                version={m.version}
-                createdAt={m.createdAt}
-                agent={m.agentId ? agent(m.agentId) : undefined}
-              />
+              <ResolveAgent key={m.id} id={m.agentId}>
+                {(agent) => (
+                  <DeliverableCard
+                    fileName={m.fileName}
+                    fileType={m.fileType}
+                    version={m.version}
+                    createdAt={m.createdAt}
+                    agent={agent}
+                  />
+                )}
+              </ResolveAgent>
             );
           case "approval":
             return (
-              <ApprovalCard
-                key={m.id}
-                title={m.title}
-                description={m.description}
-                requester={agent(m.requesterAgentId)}
-                createdAt={m.createdAt}
-              />
+              <ResolveAgent key={m.id} id={m.requesterAgentId}>
+                {(agent) => (
+                  <ApprovalCard
+                    title={m.title}
+                    description={m.description}
+                    requester={agent}
+                    createdAt={m.createdAt}
+                  />
+                )}
+              </ResolveAgent>
             );
           default:
             return null;
         }
       })}
+      {showAgentTypingRow && typingAgentId ? (
+        <AgentTypingRow agentId={typingAgentId} />
+      ) : null}
+      <div ref={bottomAnchorRef} className="h-px w-full shrink-0 scroll-mt-4" aria-hidden />
     </div>
   );
 }

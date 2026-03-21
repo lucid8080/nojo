@@ -1,11 +1,7 @@
 /**
- * MOCK DATA — Replace with API: GET /jobs?board=active
- * Shape: Job[], TaskLogEntry[], JobStatus for real-time updates.
- *
- * Integration:
- * - Pass jobs into JobBoard (future prop) or hydrate Zustand/query from API.
- * - Task log updates: SSE or WebSocket append TaskLogEntry; mirror `Job.tasks`.
- * - Disable demo: set NEXT_PUBLIC_AGENT_BOARD_DEMO=false or JobBoard demoMode={false}.
+ * DTOs for dashboard job cards (`Job`, `TaskLogEntry`, `JobStatus`).
+ * The work board hydrates these from Agent Workspace seed data via `workspaceBoardProjection`
+ * (not from `JOB_SEEDS` / `BOARD_JOB_IDS` in production UI).
  */
 
 export type TaskLogState = "done" | "running" | "queued" | "blocked";
@@ -21,15 +17,21 @@ export type JobStatus =
 
 export type JobPriority = "Low" | "Medium" | "High";
 
+export type TaskLogActorKind = "agent" | "system" | "run";
+
 export type TaskLogEntry = {
   id: string;
   text: string;
-  /** Display name; initials derived in UI */
+  /** Display name in the task log row */
   agentName: string;
   state: TaskLogState;
   meta?: string;
   time?: string;
   highlight?: "running" | "milestone" | "blocked";
+  /** Avatar/rendering mode; omit for legacy mock rows (treated as agent by display name). */
+  actorKind?: TaskLogActorKind;
+  /** Canonical roster id when actorKind is "agent". */
+  participantId?: string;
 };
 
 export type JobFooter = {
@@ -45,7 +47,14 @@ export type Job = {
   client: string;
   status: JobStatus;
   priority: JobPriority;
+  /** Display names (resolved from roster when from workspace projection). */
   agents: string[];
+  /** Same order as agents; used for avatar keys. Empty for legacy mock jobs. */
+  agentIds: string[];
+  /** OpenClaw / UI routing lead; optional on legacy mock jobs. */
+  primaryAgentId?: string;
+  /** Resolved display name for lead agent (workspace projection). */
+  primaryAgentName?: string;
   startedAgo?: string;
   tasks: TaskLogEntry[];
   footer: JobFooter;
@@ -56,7 +65,7 @@ function entry(
   text: string,
   agentName: string,
   state: TaskLogState,
-  opts?: Partial<Pick<TaskLogEntry, "meta" | "time" | "highlight">>,
+  opts?: Partial<Pick<TaskLogEntry, "meta" | "time" | "highlight" | "actorKind" | "participantId">>,
 ): TaskLogEntry {
   return { id, text, agentName, state, ...opts };
 }
@@ -70,6 +79,7 @@ export const JOB_SEEDS: Record<string, Job> = {
     status: "In Progress",
     priority: "High",
     agents: ["Security Agent", "File Audit Agent", "Report Agent"],
+    agentIds: [],
     startedAgo: "18 min ago",
     tasks: [
       entry("j1-t1", "Scanned public_html for suspicious PHP files", "Security Agent", "done", {
@@ -109,6 +119,7 @@ export const JOB_SEEDS: Record<string, Job> = {
     status: "Analyzing",
     priority: "Medium",
     agents: ["Research Agent", "Market Agent", "Analyst Agent"],
+    agentIds: [],
     startedAgo: "47 min ago",
     tasks: [
       entry("j2-t1", "Identified 24 competing tools", "Research Agent", "done", { time: "40m ago" }),
@@ -141,6 +152,7 @@ export const JOB_SEEDS: Record<string, Job> = {
     status: "Queued",
     priority: "Medium",
     agents: ["Automation Agent", "CRM Agent"],
+    agentIds: [],
     startedAgo: "Starting…",
     tasks: [
       entry("j3-t1", "Waiting for job slot", "Automation Agent", "blocked", {
@@ -166,6 +178,7 @@ export const JOB_SEEDS: Record<string, Job> = {
     status: "In Progress",
     priority: "High",
     agents: ["Builder Agent", "Copy Agent", "QA Agent"],
+    agentIds: [],
     startedAgo: "2h ago",
     tasks: [
       entry("j4-t1", "Pulled brand tokens from design system", "Builder Agent", "done", { time: "1h 50m ago" }),
@@ -193,6 +206,7 @@ export const JOB_SEEDS: Record<string, Job> = {
     status: "Reviewing",
     priority: "Medium",
     agents: ["SEO Agent", "Copy Agent", "Research Agent"],
+    agentIds: [],
     startedAgo: "6h ago",
     tasks: [
       entry("j5-t1", "Mapped 32 target keywords", "SEO Agent", "done", { time: "5h ago" }),
@@ -217,6 +231,7 @@ export const JOB_SEEDS: Record<string, Job> = {
     status: "Running",
     priority: "High",
     agents: ["Analyst Agent", "Report Agent"],
+    agentIds: [],
     startedAgo: "33 min ago",
     tasks: [
       entry("j6-t1", "Ingested 14 PDF exhibits", "Analyst Agent", "done", { meta: "OCR + redact", time: "28m ago" }),
@@ -243,6 +258,7 @@ export const JOB_SEEDS: Record<string, Job> = {
     status: "Queued",
     priority: "Low",
     agents: ["CRM Agent", "Automation Agent", "QA Agent"],
+    agentIds: [],
     startedAgo: "—",
     tasks: [
       entry("j7-t1", "Queued behind priority jobs", "Automation Agent", "queued", { meta: "Position 3" }),
@@ -264,6 +280,7 @@ export const JOB_SEEDS: Record<string, Job> = {
     status: "In Progress",
     priority: "Medium",
     agents: ["Outreach Agent", "Copy Agent", "Research Agent"],
+    agentIds: [],
     startedAgo: "1h 12m ago",
     tasks: [
       entry("j8-t1", "Built ICP list 240 contacts", "Research Agent", "done", { time: "1h ago" }),
@@ -321,6 +338,9 @@ export function cloneJob(job: Job): Job {
   return {
     ...job,
     agents: [...job.agents],
+    agentIds: [...job.agentIds],
+    primaryAgentId: job.primaryAgentId,
+    primaryAgentName: job.primaryAgentName,
     tasks: job.tasks.map((t) => ({ ...t })),
     footer: { ...job.footer },
   };

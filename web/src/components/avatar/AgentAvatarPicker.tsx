@@ -1,8 +1,13 @@
 "use client";
 
+import {
+  AVATAR_ACCENT_PALETTE,
+  type CategoryColorName,
+  getAgentAvatarFrameClassFromAgent,
+} from "@/lib/categoryColors";
+import { getAgentAvatarFilename, setAgentAvatarFilename } from "@/lib/agentAvatars";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { getAgentAvatarFilename, setAgentAvatarFilename } from "@/lib/agentAvatars";
 
 type AvatarListResponse =
   | {
@@ -23,21 +28,32 @@ export function AgentAvatarPicker({
   agentLabel,
   onClose,
   onChanged,
+  /** When set, drives selection highlight and label instead of only `agentAvatarMapV1`. */
+  selectedFilenameOverride,
+  accentKey = null,
+  onAccentChange,
+  categoryLabelForAccent = "SPECIALIZED",
 }: {
   open: boolean;
   agentKey: string;
   agentLabel: string;
   onClose: () => void;
   onChanged?: (filename: string | null) => void;
+  selectedFilenameOverride?: string | null;
+  accentKey?: CategoryColorName | null;
+  onAccentChange?: (accent: CategoryColorName | null) => void;
+  categoryLabelForAccent?: string;
 }) {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<AvatarListResponse | null>(null);
 
-  const selectedFilename = useMemo(
-    () => getAgentAvatarFilename(agentKey),
+  const selectedFilename = useMemo(() => {
+    if (selectedFilenameOverride !== undefined) {
+      return selectedFilenameOverride;
+    }
+    return getAgentAvatarFilename(agentKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [open, agentKey],
-  );
+  }, [open, agentKey, selectedFilenameOverride]);
 
   useEffect(() => {
     if (!open) return;
@@ -144,6 +160,10 @@ export function AgentAvatarPicker({
           <div className="grid grid-cols-4 gap-3 sm:grid-cols-6">
             {avatars.map((a) => {
               const active = selectedFilename === a.filename;
+              const frameClass = getAgentAvatarFrameClassFromAgent({
+                categoryLabel: categoryLabelForAccent,
+                avatarAccent: accentKey,
+              });
               return (
                 <button
                   key={a.filename}
@@ -156,23 +176,73 @@ export function AgentAvatarPicker({
                   }`}
                   title={a.filename}
                 >
-                  <img
-                    src={a.url}
-                    alt={a.filename}
-                    className="aspect-square w-full rounded-xl object-cover"
-                    loading="lazy"
-                  />
+                  <span
+                    className={`inline-flex w-full rounded-xl p-0.5 shadow-sm ring-2 ring-white dark:ring-slate-900 ${frameClass}`}
+                  >
+                    <img
+                      src={a.url}
+                      alt={a.filename}
+                      className="aspect-square w-full rounded-[10px] object-cover"
+                      loading="lazy"
+                    />
+                  </span>
                 </button>
               );
             })}
           </div>
         )}
 
+        {onAccentChange ? (
+          <section className="mt-5 border-t border-neutral-200 pt-4 dark:border-slate-700">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              Ring / background
+            </h4>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Frame around the photo and initials fallback (same as agent
+              details).
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onAccentChange(null)}
+                className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${
+                  accentKey === null
+                    ? "border-sky-500 bg-sky-50 text-sky-900 dark:border-sky-400 dark:bg-sky-950/40 dark:text-sky-200"
+                    : "border-neutral-300 bg-white text-slate-700 hover:bg-neutral-50 dark:border-slate-600 dark:bg-slate-800 dark:text-neutral-200 dark:hover:bg-slate-700"
+                }`}
+              >
+                Default
+              </button>
+              {AVATAR_ACCENT_PALETTE.map((c) => {
+                const swatch = getAgentAvatarFrameClassFromAgent({
+                  categoryLabel: categoryLabelForAccent,
+                  avatarAccent: c,
+                });
+                const selected = accentKey === c;
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    title={c}
+                    aria-label={`Avatar ring color ${c}`}
+                    onClick={() => onAccentChange(c)}
+                    className={`size-9 rounded-xl ring-2 ring-offset-2 transition ring-offset-white dark:ring-offset-slate-900 ${swatch} ${
+                      selected
+                        ? "ring-sky-500"
+                        : "ring-transparent hover:ring-neutral-300 dark:hover:ring-slate-600"
+                    }`}
+                  />
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
+
         <div className="mt-5 flex items-center justify-end">
           <button
             type="button"
             onClick={() => {
-              onChanged?.(getAgentAvatarFilename(agentKey));
+              onChanged?.(selectedFilename);
               onClose();
             }}
             className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 dark:bg-neutral-100 dark:text-slate-900 dark:hover:bg-white"

@@ -2,8 +2,11 @@
 
 import { getAvatarAccentClasses } from "@/lib/agentAvatars";
 import {
+  getAgentAvatarFallbackClassFromAgent,
+  getAgentAvatarFrameClassFromAgent,
   getCategoryAvatarFallbackClass,
   getCategoryAvatarFrameClass,
+  type CategoryColorName,
 } from "@/lib/categoryColors";
 import { useEffect, useMemo, useState } from "react";
 
@@ -23,7 +26,10 @@ export function AvatarBubble({
   title,
   className = "",
   category,
+  avatarAccent,
   hoverGrow = true,
+  /** Canonical id for ring/fallback color hash; defaults to label when omitted. */
+  accentKey,
 }: {
   label: string;
   src?: string | null;
@@ -32,21 +38,44 @@ export function AvatarBubble({
   className?: string;
   /** When set, avatar ring/fallback use category palette instead of hash. */
   category?: string;
+  /** When set, takes precedence over category (View details / identity accent). */
+  avatarAccent?: CategoryColorName;
   /** When true, avatar scales up on hover. Default true. */
   hoverGrow?: boolean;
+  accentKey?: string;
 }) {
   const initials = useMemo(() => initialsFromLabel(label), [label]);
   const px = `${size}px`;
   const [imgFailed, setImgFailed] = useState(false);
-  const hashAccent = useMemo(() => getAvatarAccentClasses(label), [label]);
-  const frameBg = category?.trim()
-    ? getCategoryAvatarFrameClass(category)
-    : hashAccent.frame;
-  const fallbackSurface = category?.trim()
-    ? getCategoryAvatarFallbackClass(category)
-    : hashAccent.fallback;
+  const hashSource = accentKey?.trim() || label;
+  const hashAccent = useMemo(() => getAvatarAccentClasses(hashSource), [hashSource]);
+  const palette = useMemo(() => {
+    if (avatarAccent) {
+      return {
+        frame: getAgentAvatarFrameClassFromAgent({
+          categoryLabel: "SPECIALIZED",
+          avatarAccent,
+        }),
+        fallback: getAgentAvatarFallbackClassFromAgent({
+          categoryLabel: "SPECIALIZED",
+          avatarAccent,
+        }),
+      };
+    }
+    if (category?.trim()) {
+      return {
+        frame: getCategoryAvatarFrameClass(category),
+        fallback: getCategoryAvatarFallbackClass(category),
+      };
+    }
+    return null;
+  }, [avatarAccent, category]);
+  const frameBg = palette?.frame ?? hashAccent.frame;
+  const fallbackSurface = palette?.fallback ?? hashAccent.fallback;
 
+  // Reset load error when the image URL changes (external img src).
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync error state to new `src`
     setImgFailed(false);
   }, [src]);
 

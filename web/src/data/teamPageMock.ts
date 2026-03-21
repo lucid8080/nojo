@@ -2,6 +2,8 @@
  * MOCK — replace with API. Shape intended for GET /team/agents, /team/stats, /team/importable-skills
  */
 
+import type { CategoryColorName } from "@/lib/categoryColors";
+
 export type TeamAgentStatus = "active" | "idle" | "busy" | "paused" | "archived";
 
 export type TeamAgent = {
@@ -9,6 +11,8 @@ export type TeamAgent = {
   name: string;
   /** Marketplace taxonomy label for category colors */
   categoryLabel: string;
+  /** Optional override for avatar ring / initials background (see AVATAR_ACCENT_PALETTE). */
+  avatarAccent?: CategoryColorName;
   role: string;
   status: TeamAgentStatus;
   description: string;
@@ -23,6 +27,14 @@ export type TeamAgent = {
   installedSkills: string[];
   taskQueue: { id: string; title: string; state: "queued" | "running" | "blocked" }[];
   performanceStats: { label: string; value: string }[];
+  /** Set when mapping from workspace roster with empty source fields */
+  rosterFieldsMissing?: { name?: boolean; role?: boolean };
+  /** Optional label emoji (e.g. shown next to name). */
+  emoji?: string;
+  /** Tone / personality notes for prompts and admin context. */
+  vibe?: string;
+  /** Marketplace skill ids assigned in workspace metadata (resolved to names in `installedSkills`). */
+  assignedSkillIds?: string[];
 };
 
 export type TeamStats = {
@@ -48,6 +60,7 @@ export const teamStatsMock: TeamStats = {
   savedSkillPacks: 12,
 };
 
+/** Legacy demo roster (fictional agents). Prefer `workspaceRosterToTeamAgents(NOJO_WORKSPACE_AGENTS)` in app routes. */
 export const teamAgentsMock: TeamAgent[] = [
   {
     id: "ag-1",
