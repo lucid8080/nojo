@@ -1,5 +1,6 @@
 "use client";
 
+import { useWorkspaceRosterFromContext } from "@/components/providers/WorkspaceRosterProvider";
 import type { NojoWorkspaceRosterEntry } from "@/data/nojoWorkspaceRoster";
 import type { TeamAgent } from "@/data/teamPageMock";
 import {
@@ -8,21 +9,24 @@ import {
   readOverrides,
 } from "@/lib/nojo/agentIdentityOverrides";
 import {
-  mergeSeedWithCustomRoster,
+  mergeSeedWithCustomRosterEntries,
   NOJO_TEAM_WORKSPACE_CHANGED,
   NOJO_TEAM_WORKSPACE_STORAGE_KEY,
+  readCustomRoster,
 } from "@/lib/nojo/teamWorkspaceStore";
+import { useHasMounted } from "@/lib/hooks/useHasMounted";
 import { workspaceRosterToTeamAgents } from "@/lib/nojo/workspaceAgentToTeamAgent";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 /**
- * Team agents merged with local identity overrides. Re-reads after mount (client storage)
- * and on cross-tab storage / identity events.
+ * Team agents merged with persisted custom roster (API) and local identity overrides.
  */
 export function useHydratedTeamAgents(
   baseRoster: readonly NojoWorkspaceRosterEntry[],
 ): TeamAgent[] {
-  /** 0 = match SSR (no localStorage in roster). 1+ = merged client state. */
+  const { customAgents, loading } = useWorkspaceRosterFromContext();
+  const hasMounted = useHasMounted();
+  /** 0 = match SSR (no overlays). 1+ = merged client state. */
   const [version, setVersion] = useState(0);
   const bump = useCallback(() => setVersion((v) => v + 1), []);
 
@@ -50,12 +54,19 @@ export function useHydratedTeamAgents(
     };
   }, [bump]);
 
+  const effectiveCustom = useMemo(() => {
+    if (!hasMounted) return [];
+    if (customAgents.length > 0) return customAgents;
+    if (loading) return readCustomRoster();
+    return [];
+  }, [hasMounted, customAgents, loading]);
+
   return useMemo(() => {
-    const roster = mergeSeedWithCustomRoster(baseRoster, version > 0);
+    const roster = mergeSeedWithCustomRosterEntries(baseRoster, effectiveCustom);
     return workspaceRosterToTeamAgents(
       roster,
       version === 0 ? null : readOverrides(),
       { skipStoredAvatars: version === 0 },
     );
-  }, [baseRoster, version]);
+  }, [baseRoster, version, effectiveCustom]);
 }

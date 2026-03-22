@@ -1,0 +1,11 @@
+---
+description: Ontario residential tenancy, LTB, RTA, standard notices (N4, N5, etc.), landlord–tenant email or workflow support.
+globs:
+alwaysApply: false
+---
+
+When the task involves Ontario **residential** tenancies, the **Residential Tenancies Act, 2006**, the **LTB**, standard **notices** or **tenant/landlord** correspondence:
+
+1. Read `skills/ontario-residential-tenancy/SKILL.md` first.
+2. Pull detail from `skills/ontario-residential-tenancy/references/` and `templates/` only as needed.
+3. Do not treat outputs as legal advice; point users to official forms and current LTB/Ontario sources for deadlines, service rules, and form fields.

@@ -2,7 +2,7 @@
 
 import { AvatarBubble } from "@/components/avatar/AvatarBubble";
 import { NOJO_WORKSPACE_AGENTS } from "@/data/nojoWorkspaceRoster";
-import { getAgentAvatarUrl } from "@/lib/agentAvatars";
+import { useHydrationSafeAgentAvatarUrl } from "@/lib/hooks/useHydrationSafeAgentAvatarUrl";
 import { useHydratedTeamAgents } from "@/lib/nojo/useHydratedTeamAgents";
 import type { OperationalScheduledJob } from "@/lib/openclaw/openClawCronTypes";
 import {
@@ -60,10 +60,7 @@ function ScheduleJobRow({
   resolveAgentLabel: (agentId: string | null) => string;
 }) {
   const label = resolveAgentLabel(job.targetAgentId);
-  const src = useMemo(
-    () => getAgentAvatarUrl(label, { withDefault: true }),
-    [label],
-  );
+  const src = useHydrationSafeAgentAvatarUrl(label);
 
   return (
     <div className="flex gap-4 rounded-xl border border-neutral-100/90 bg-neutral-50/70 p-4 shadow-sm dark:border-slate-700/60 dark:bg-slate-800/50 dark:shadow-black/10">

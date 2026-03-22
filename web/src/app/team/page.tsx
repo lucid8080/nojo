@@ -5,6 +5,7 @@ import {
   collaboratorAgents,
   headerNavItems,
 } from "@/data/dashboardSampleData";
+import { getPublishedCmsMarketplaceModels } from "@/lib/skillCard/publishedSkillCards";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -23,6 +24,7 @@ export default async function TeamPage({ searchParams }: Props) {
   const autoScrollToCreateAgent =
     sp.create === "1" || sp.create === "true";
   const baseRoster = showEmpty ? [] : NOJO_WORKSPACE_AGENTS;
+  const cmsSkillModels = await getPublishedCmsMarketplaceModels();
 
   return (
     <div className="min-h-screen bg-neutral-100 text-slate-900 dark:bg-slate-950 dark:text-neutral-50">
@@ -34,6 +36,7 @@ export default async function TeamPage({ searchParams }: Props) {
           baseRoster={baseRoster}
           collaboratorAgents={collaboratorAgents}
           autoScrollToCreateAgent={autoScrollToCreateAgent}
+          cmsSkillModels={cmsSkillModels}
         />
       </main>
     </div>

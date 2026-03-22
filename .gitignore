@@ -1,5 +1,7 @@
-# Ignore editor/agent scratch files
-.cursor/
+# Ignore editor/agent scratch files; allow shared project rules (skills live under /skills)
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
 
 # Ignore app build/deps folders (mostly inside web/)
 web/node_modules/

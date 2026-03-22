@@ -2,9 +2,8 @@
 
 import type { TaskLogEntry } from "@/data/agentJobsMock";
 import { AvatarBubble } from "@/components/avatar/AvatarBubble";
-import { getAgentAvatarUrl } from "@/lib/agentAvatars";
+import { useHydrationSafeAgentAvatarUrl } from "@/lib/hooks/useHydrationSafeAgentAvatarUrl";
 import { useResolvedAgentAccent } from "@/lib/nojo/useResolvedAgentAccent";
-import { useMemo } from "react";
 
 function effectiveActorKind(task: TaskLogEntry): NonNullable<TaskLogEntry["actorKind"]> {
   if (task.actorKind) return task.actorKind;
@@ -136,10 +135,7 @@ function TaskAgentAvatar({
   participantId?: string;
 }) {
   const visual = useResolvedAgentAccent(participantId?.trim() || undefined);
-  const src = useMemo(
-    () => getAgentAvatarUrl(avatarKey, { withDefault: true }),
-    [avatarKey],
-  );
+  const src = useHydrationSafeAgentAvatarUrl(avatarKey);
 
   const category =
     visual.kind === "palette" ? visual.categoryLabel : undefined;

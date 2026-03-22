@@ -1,4 +1,5 @@
 import { TopNav } from "@/components/dashboard/TopNav";
+import { PremiumSkillBadge } from "@/components/skills/PremiumSkillBadge";
 import { SkillAssignmentsPanel } from "@/components/skills/SkillAssignmentsPanel";
 import { SkillMarkdownDoc } from "@/components/skills/SkillMarkdownDoc";
 import { headerNavItems } from "@/data/dashboardSampleData";
@@ -8,6 +9,10 @@ import {
 } from "@/lib/categoryColors";
 import { loadAgencySkillMarkdown } from "@/lib/nojo/agencySkillLoader";
 import { resolveSkillByEncodedId } from "@/lib/nojo/resolveSkill";
+import {
+  importableSkillDetailArticleClass,
+  importableSkillDetailIconWrapClass,
+} from "@/lib/skillPresentation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -94,19 +99,24 @@ export default async function SkillDetailPage({ params }: Props) {
 
         {resolved.kind === "importable" ? (
           <article
-            className={`rounded-2xl border border-neutral-200/60 bg-white/90 p-6 shadow-sm dark:border-slate-700/60 dark:bg-slate-900/60 ${getCategoryCardClasses(resolved.skill.category)}`}
+            className={importableSkillDetailArticleClass(resolved.skill)}
           >
             <div className="flex flex-wrap items-start gap-4">
               <span
-                className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-white text-2xl shadow-sm dark:bg-slate-800"
+                className={importableSkillDetailIconWrapClass(resolved.skill)}
                 aria-hidden
               >
                 {resolved.skill.icon}
               </span>
               <div className="min-w-0 flex-1">
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                  {resolved.skill.name}
-                </h1>
+                <div className="flex flex-wrap items-center gap-2 gap-y-1">
+                  <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                    {resolved.skill.name}
+                  </h1>
+                  {resolved.skill.isPremium ? (
+                    <PremiumSkillBadge className="shrink-0" />
+                  ) : null}
+                </div>
                 <span
                   className={`mt-2 inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${getCategoryTagClasses(resolved.skill.category)}`}
                 >
@@ -121,7 +131,9 @@ export default async function SkillDetailPage({ params }: Props) {
                   Status
                 </dt>
                 <dd className="mt-0.5 text-slate-600 dark:text-neutral-400">
-                  Workspace catalog — available to assign to agents
+                  {resolved.skill.isPremium
+                    ? "Premium workspace — available to assign to agents"
+                    : "Workspace catalog — available to assign to agents"}
                 </dd>
               </div>
               <div>

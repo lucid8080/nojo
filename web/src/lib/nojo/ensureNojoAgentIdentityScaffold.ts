@@ -5,6 +5,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { getConfiguredRuntimeAgentsRoot } from "@/lib/openclaw/openClawRuntimeRoot";
+import { syncBundledSkillPacksForCanonicalAgentFromEnv } from "./bundledSkillsRuntimeSync";
 import { resolveRepoNojoAgentTemplateRoot } from "./nojoAgentRepoPaths";
 import type {
   NojoAgentIdentityScaffoldResult,
@@ -179,6 +180,18 @@ export async function ensureNojoAgentIdentityScaffold(opts: {
   const runtimeFileSnapshot = await buildRuntimeSnapshots(runtimeWorkspace);
   const { fingerprint: runtimeIdentityFingerprint, genericFallbackRisk } =
     await computeRuntimeIdentityFingerprint(runtimeWorkspace);
+
+  /** Opt-in: `NOJO_CANONICAL_AGENT_BUNDLED_SKILL_IDS` (e.g. `sk-9`) — see `syncBundledSkillPacksForCanonicalAgentFromEnv`. */
+  const canonicalSkillSync = await syncBundledSkillPacksForCanonicalAgentFromEnv(
+    runtimeWorkspaceAbsPath,
+  );
+  if (canonicalSkillSync?.errors.length) {
+    console.warn("[nojo.scaffold.canonical.bundledSkills]", {
+      agentId,
+      errors: canonicalSkillSync.errors,
+      repoSkillsRoot: canonicalSkillSync.repoSkillsRoot,
+    });
+  }
 
   return {
     seeded,

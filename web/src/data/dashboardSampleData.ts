@@ -9,12 +9,6 @@ export type HeaderNavItem = {
 
 export const headerNavItems = [
   { id: "overview", label: "Dashboard", icon: "grid", href: "/dashboard" },
-  {
-    id: "analytics",
-    label: "Analytics",
-    icon: "chart",
-    href: "/analytics",
-  },
   { id: "marketplace", label: "Marketplace", icon: "grid", href: "/marketplace" },
   { id: "integrations", label: "Integrations", icon: "plus", href: "/integrations" },
   { id: "messages", label: "Chat", icon: "message", href: "/workspace" },
@@ -28,7 +22,6 @@ export const topNavItems = [
   "Teams",
   "Tasks",
   "Deployments",
-  "Analytics",
   "Billing",
 ] as const;
 
@@ -39,12 +32,6 @@ export const leftRailItems = [
   { id: "saved", label: "Saved Views", icon: "bookmark" },
   { id: "create", label: "Create", icon: "plus" },
   { id: "applications", label: "Applications", icon: "inbox" },
-  {
-    id: "analytics",
-    label: "Analytics",
-    icon: "chart",
-    href: "/analytics",
-  },
   {
     id: "agents",
     label: "Agents",

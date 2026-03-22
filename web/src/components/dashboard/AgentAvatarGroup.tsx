@@ -1,9 +1,8 @@
 "use client";
 
 import { AvatarBubble } from "@/components/avatar/AvatarBubble";
-import { getAgentAvatarUrl } from "@/lib/agentAvatars";
+import { useHydrationSafeAgentAvatarUrl } from "@/lib/hooks/useHydrationSafeAgentAvatarUrl";
 import { useResolvedAgentAccent } from "@/lib/nojo/useResolvedAgentAccent";
-import { useMemo } from "react";
 
 function initialsFromAgentName(name: string): string {
   const parts = name.replace(/ Agent$/i, "").split(/\s+/).filter(Boolean);
@@ -18,10 +17,7 @@ const bubbleBase =
 
 function AgentAvatarBubble({ name, avatarKey }: { name: string; avatarKey: string }) {
   const visual = useResolvedAgentAccent(avatarKey);
-  const src = useMemo(
-    () => getAgentAvatarUrl(avatarKey, { withDefault: true }),
-    [avatarKey],
-  );
+  const src = useHydrationSafeAgentAvatarUrl(avatarKey);
 
   const category = visual.kind === "palette" ? visual.categoryLabel : undefined;
   const accent = visual.kind === "palette" ? visual.avatarAccent : undefined;

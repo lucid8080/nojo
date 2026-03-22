@@ -24,6 +24,14 @@ export function defaultAvatarFilename(agentKey: string) {
   return `${idx}.png`;
 }
 
+/**
+ * Stable avatar URL for SSR and the first client paint (ignores localStorage overrides).
+ * Use this until after hydration, then `getAgentAvatarUrl` can apply user picks.
+ */
+export function getDefaultAgentAvatarUrl(agentKey: string) {
+  return `/avatar/${encodeURIComponent(defaultAvatarFilename(agentKey))}`;
+}
+
 export function readAgentAvatarMap(): AgentAvatarMap {
   if (typeof window === "undefined") return {};
   try {

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   isCustomTeamAgentId,
   mergeSeedWithCustomRoster,
+  mergeSeedWithCustomRosterEntries,
 } from "./teamWorkspaceStore";
 
 describe("mergeSeedWithCustomRoster", () => {
@@ -15,6 +16,23 @@ describe("mergeSeedWithCustomRoster", () => {
   it("includes seed when includeCustom is true (no window in test env)", () => {
     const merged = mergeSeedWithCustomRoster(NOJO_WORKSPACE_AGENTS, true);
     expect(merged.length).toBeGreaterThanOrEqual(NOJO_WORKSPACE_AGENTS.length);
+  });
+});
+
+describe("mergeSeedWithCustomRosterEntries", () => {
+  it("appends custom rows after seed", () => {
+    const custom = [
+      {
+        id: "nojo-team-1",
+        name: "T",
+        initials: "T",
+        role: "R",
+        avatarClass: "bg-slate-500",
+      },
+    ];
+    const merged = mergeSeedWithCustomRosterEntries(NOJO_WORKSPACE_AGENTS, custom);
+    expect(merged).toHaveLength(NOJO_WORKSPACE_AGENTS.length + 1);
+    expect(merged[merged.length - 1]?.id).toBe("nojo-team-1");
   });
 });
 

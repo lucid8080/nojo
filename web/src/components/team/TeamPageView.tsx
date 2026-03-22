@@ -4,22 +4,23 @@ import { AgentDetailsSheet, TeamAgentAvatar } from "@/components/team/AgentDetai
 import { CreateAgentSheet } from "@/components/team/CreateAgentSheet";
 import { CollaboratorStrip } from "@/components/dashboard/CollaboratorStrip";
 import type { collaboratorAgents } from "@/data/dashboardSampleData";
-import type {
-  ImportableSkill,
-  TeamAgent,
-  TeamAgentStatus,
-  TeamStats,
-} from "@/data/teamPageMock";
+import type { TeamAgent, TeamAgentStatus, TeamStats } from "@/data/teamPageMock";
+import agencyData from "@/data/agencyAgents.json";
+import type { AgencyAgentsPayload } from "@/data/agencyAgents.types";
+import type { MarketplaceSkillCardModel } from "@/data/marketplaceSkillCatalog";
 import {
-  importableSkillsMock,
-  skillCategories,
-} from "@/data/teamPageMock";
+  filterMarketplaceItemsByFacet,
+  getMarketplaceFacetChips,
+  getMarketplaceSkillCardItems,
+  importableSkills,
+  marketplaceCardMatchesSearch,
+  mergeMarketplaceSkillItems,
+} from "@/data/marketplaceSkillCatalog";
+import { MarketplaceSkillCard } from "@/components/marketplace/MarketplaceSkillCard";
 import {
   getCategoryCardClasses,
   getCategoryFilterSelectedClasses,
-  getCategoryTagClasses,
 } from "@/lib/categoryColors";
-import { skillDetailHref } from "@/lib/nojo/resolveSkill";
 import type { NojoWorkspaceRosterEntry } from "@/data/nojoWorkspaceRoster";
 import { useHydratedTeamAgents } from "@/lib/nojo/useHydratedTeamAgents";
 import Link from "next/link";
@@ -201,15 +202,18 @@ export function TeamPageView({
   baseRoster,
   collaboratorAgents,
   autoScrollToCreateAgent,
+  cmsSkillModels = [],
 }: {
   baseRoster: readonly NojoWorkspaceRosterEntry[];
   collaboratorAgents: readonly CollaboratorAgent[];
   autoScrollToCreateAgent?: boolean;
+  cmsSkillModels?: MarketplaceSkillCardModel[];
 }) {
   const agents = useHydratedTeamAgents(baseRoster);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [skillQuery, setSkillQuery] = useState("");
-  const [category, setCategory] = useState<string>("All");
+  /** "all" or facet id (`imp:…` / `div:…`) — same catalog as /marketplace */
+  const [skillFacet, setSkillFacet] = useState<string>("all");
   const [createOpen, setCreateOpen] = useState(false);
   const [createSession, setCreateSession] = useState(0);
 
@@ -219,18 +223,34 @@ export function TeamPageView({
     [agents, selectedId],
   );
 
-  const filteredSkills = useMemo(() => {
+  const marketplaceSkillItems = useMemo(
+    () =>
+      mergeMarketplaceSkillItems(
+        getMarketplaceSkillCardItems(agencyData as AgencyAgentsPayload),
+        cmsSkillModels,
+      ),
+    [cmsSkillModels],
+  );
+
+  const teamFacetChips = useMemo(
+    () =>
+      getMarketplaceFacetChips(
+        importableSkills,
+        (agencyData as AgencyAgentsPayload).agents,
+        cmsSkillModels.map((i) => i.categoryTag),
+      ),
+    [cmsSkillModels],
+  );
+
+  const filteredSkillItems = useMemo(() => {
+    let items = marketplaceSkillItems;
+    if (skillFacet !== "all") {
+      items = filterMarketplaceItemsByFacet(items, skillFacet);
+    }
     const q = skillQuery.trim().toLowerCase();
-    return importableSkillsMock.filter((s) => {
-      const catOk = category === "All" || s.category === category;
-      const textOk =
-        !q ||
-        s.name.toLowerCase().includes(q) ||
-        s.description.toLowerCase().includes(q) ||
-        s.category.toLowerCase().includes(q);
-      return catOk && textOk;
-    });
-  }, [skillQuery, category]);
+    if (!q) return items;
+    return items.filter((i) => marketplaceCardMatchesSearch(i, q));
+  }, [marketplaceSkillItems, skillFacet, skillQuery]);
 
   const scrollToSkills = useCallback(() => {
     document.getElementById("marketplace-skills")?.scrollIntoView({
@@ -550,8 +570,8 @@ export function TeamPageView({
           Marketplace skills
         </h2>
         <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-neutral-400">
-          Import capabilities into your agents. Filter by category or search by
-          name.
+          Import capabilities into your agents. Filter by category, division, or
+          search by name — same catalog as the Skills marketplace.
         </p>
         <label className="mt-5 block max-w-xl">
           <span className="sr-only">Search skills</span>
@@ -566,74 +586,53 @@ export function TeamPageView({
         <div
           className="mt-5 flex flex-wrap gap-2"
           role="group"
-          aria-label="Filter by category"
+          aria-label="Filter by category or division"
         >
-          {skillCategories.map((cat) => {
-            const selected = category === cat;
-            const isAll = cat === "All";
+          <button
+            type="button"
+            onClick={() => setSkillFacet("all")}
+            className={
+              skillFacet === "all"
+                ? "rounded-full bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white dark:bg-neutral-100 dark:text-slate-900"
+                : "rounded-full border border-neutral-300 bg-white px-4 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-neutral-50 dark:border-slate-600 dark:bg-slate-800 dark:text-neutral-200 dark:hover:bg-slate-700"
+            }
+          >
+            All
+          </button>
+          {teamFacetChips.map((f) => {
+            const selected = skillFacet === f.id;
+            const importableCategory =
+              f.id.startsWith("imp:") ? f.id.slice(4) : null;
             return (
               <button
-                key={cat}
+                key={f.id}
                 type="button"
-                onClick={() => setCategory(cat)}
+                onClick={() => setSkillFacet(f.id)}
                 className={
                   selected
-                    ? isAll
-                      ? "rounded-full bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white dark:bg-neutral-100 dark:text-slate-900"
-                      : `rounded-full px-4 py-1.5 text-xs font-semibold ${getCategoryFilterSelectedClasses(cat)}`
+                    ? importableCategory
+                      ? `rounded-full px-4 py-1.5 text-xs font-semibold ${getCategoryFilterSelectedClasses(importableCategory)}`
+                      : "rounded-full bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white dark:bg-neutral-100 dark:text-slate-900"
                     : "rounded-full border border-neutral-300 bg-white px-4 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-neutral-50 dark:border-slate-600 dark:bg-slate-800 dark:text-neutral-200 dark:hover:bg-slate-700"
                 }
               >
-                {cat}
+                {f.label}
               </button>
             );
           })}
         </div>
-        {filteredSkills.length === 0 ? (
+        {filteredSkillItems.length === 0 ? (
           <p className="mt-6 text-center text-sm text-slate-500 dark:text-neutral-500">
             No skills match your filters.
           </p>
         ) : (
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filteredSkills.map((skill: ImportableSkill) => (
-              <Link
-                key={skill.id}
-                href={skillDetailHref(skill.id)}
-                className="flex flex-col rounded-2xl border border-neutral-200/90 bg-gradient-to-b from-white to-neutral-50/80 p-5 shadow-sm transition hover:border-sky-300/80 hover:shadow-md dark:border-slate-700 dark:from-slate-900 dark:to-slate-900/80 dark:hover:border-sky-800/80"
-              >
-                <div className="flex items-start gap-3">
-                  <span
-                    className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-white text-xl shadow-sm dark:bg-slate-800"
-                    aria-hidden
-                  >
-                    {skill.icon}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-bold text-slate-900 dark:text-white">
-                      {skill.name}
-                    </h3>
-                    <span
-                      className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${getCategoryTagClasses(skill.category)}`}
-                    >
-                      {skill.category}
-                    </span>
-                  </div>
-                </div>
-                <p className="mt-3 flex-1 text-sm leading-relaxed text-slate-600 dark:text-neutral-400">
-                  {skill.description}
-                </p>
-                <p className="mt-3 text-xs text-slate-500 dark:text-neutral-500">
-                  <span className="font-semibold text-slate-700 dark:text-neutral-300">
-                    Compatible:{" "}
-                  </span>
-                  {skill.compatibility}
-                </p>
-                <span
-                  className={`${btnPrimary} mt-4 inline-flex w-full items-center justify-center text-center`}
-                >
-                  View details
-                </span>
-              </Link>
+            {filteredSkillItems.map((item) => (
+              <MarketplaceSkillCard
+                key={item.id}
+                item={item}
+                variant="team"
+              />
             ))}
           </div>
         )}

@@ -1,9 +1,10 @@
 "use client";
 
 import { AgentAvatarPicker } from "@/components/avatar/AgentAvatarPicker";
+import { PremiumSkillBadge } from "@/components/skills/PremiumSkillBadge";
 import { SkillPickerPanel } from "@/components/team/SkillPickerPanel";
 import type { TeamAgent } from "@/data/teamPageMock";
-import { importableSkillsMock } from "@/data/teamPageMock";
+import { importableSkillsMock } from "@/data/marketplaceSkillCatalog";
 import { defaultAvatarFilename } from "@/lib/agentAvatars";
 import { initialsFromDisplayName } from "@/lib/nojo/agentDisplayName";
 import { CANONICAL_NOJO_AGENT_IDS } from "@/lib/nojo/agentIdentityMap";
@@ -19,7 +20,6 @@ import {
   removeCustomAgent,
 } from "@/lib/nojo/teamWorkspaceStore";
 import {
-  AVATAR_ACCENT_PALETTE,
   type CategoryColorName,
   getAgentAvatarFallbackClassFromAgent,
   getAgentAvatarFrameClassFromAgent,
@@ -189,7 +189,7 @@ export function AgentDetailsSheet({
     };
   }, [agent, name, role, avatarFile, accentKey]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!agent) return;
     const payload: NojoAgentIdentityOverride = {
       name: name.trim(),
@@ -206,6 +206,33 @@ export function AgentDetailsSheet({
     payload.avatarAccent = accentKey ?? "";
     payload.assignedSkillIds = skillIds.length ? skillIds : [];
     patchOverride(agent.id, payload);
+    if (isCustomTeamAgentId(agent.id)) {
+      try {
+        const res = await fetch(
+          `/api/workspace/roster/${encodeURIComponent(agent.id)}`,
+          {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              name: name.trim() || agent.name,
+              initials: name.trim()
+                ? initialsFromDisplayName(name.trim())
+                : agent.initials,
+              role: role.trim() || agent.role,
+              avatarClass: agent.avatarClass,
+              categoryLabel: agent.categoryLabel ?? null,
+              identity: payload,
+            }),
+          },
+        );
+        if (!res.ok) {
+          const t = await res.text();
+          console.warn("[AgentDetailsSheet] roster PATCH failed", res.status, t);
+        }
+      } catch (e) {
+        console.warn("[AgentDetailsSheet] roster PATCH error", e);
+      }
+    }
     setSaveHint("Saved");
     window.setTimeout(() => setSaveHint(null), 2200);
     onIdentitySaved?.();
@@ -384,7 +411,9 @@ export function AgentDetailsSheet({
                 <span className={fieldLabel}>Avatar</span>
                 <p className="text-sm text-slate-600 dark:text-neutral-400">
                   Click the profile photo at the top to open the gallery (same
-                  picker as Suggested Agents).
+                  picker as Suggested Agents). In the gallery, set the ring and
+                  initials background to match the frame around the photo and the
+                  fallback initials tile.
                 </p>
                 <button
                   type="button"
@@ -393,47 +422,6 @@ export function AgentDetailsSheet({
                 >
                   Choose avatar…
                 </button>
-                <p className="mt-4 text-xs font-semibold text-slate-600 dark:text-neutral-400">
-                  Ring / initials background
-                </p>
-                <p className="mt-0.5 text-xs text-slate-500 dark:text-neutral-500">
-                  Matches the pastel frame around the photo and the fallback
-                  initials tile.
-                </p>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => applyAccentChoice(null)}
-                    className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${
-                      accentKey === null
-                        ? "border-sky-500 bg-sky-50 text-sky-900 dark:border-sky-400 dark:bg-sky-950/40 dark:text-sky-200"
-                        : "border-neutral-300 bg-white text-slate-700 hover:bg-neutral-50 dark:border-slate-600 dark:bg-slate-800 dark:text-neutral-200 dark:hover:bg-slate-700"
-                    }`}
-                  >
-                    Default
-                  </button>
-                  {AVATAR_ACCENT_PALETTE.map((c) => {
-                    const swatch = getAgentAvatarFrameClassFromAgent({
-                      categoryLabel: agent.categoryLabel,
-                      avatarAccent: c,
-                    });
-                    const selected = accentKey === c;
-                    return (
-                      <button
-                        key={c}
-                        type="button"
-                        title={c}
-                        aria-label={`Avatar ring color ${c}`}
-                        onClick={() => applyAccentChoice(c)}
-                        className={`size-9 rounded-xl ring-2 ring-offset-2 transition ring-offset-white dark:ring-offset-slate-900 ${swatch} ${
-                          selected
-                            ? "ring-sky-500"
-                            : "ring-transparent hover:ring-neutral-300 dark:hover:ring-slate-600"
-                        }`}
-                      />
-                    );
-                  })}
-                </div>
               </div>
               <div>
                 <label className={fieldLabel} htmlFor="agent-summary">
@@ -561,14 +549,19 @@ export function AgentDetailsSheet({
             ) : (
               <ul className="mb-3 flex flex-wrap gap-2">
                 {skillIds.map((sid) => {
-                  const label =
-                    importableSkillsMock.find((s) => s.id === sid)?.name ?? sid;
+                  const meta = importableSkillsMock.find((s) => s.id === sid);
+                  const label = meta?.name ?? sid;
                   return (
                     <li
                       key={sid}
                       className="inline-flex items-center gap-1 rounded-full bg-sky-100 pl-3 pr-1 py-1 text-xs font-medium text-sky-900 dark:bg-sky-950/50 dark:text-sky-200"
                     >
-                      {label}
+                      <span className="inline-flex flex-wrap items-center gap-1">
+                        {label}
+                        {meta?.isPremium ? (
+                          <PremiumSkillBadge className="shrink-0" />
+                        ) : null}
+                      </span>
                       <button
                         type="button"
                         className="rounded-full p-0.5 text-sky-800 hover:bg-sky-200/80 dark:text-sky-200 dark:hover:bg-sky-800/80"

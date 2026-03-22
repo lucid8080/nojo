@@ -7,7 +7,11 @@ import {
   buildNovaContentQaPayload,
   ensureNojoAgentIdentityScaffold,
 } from "@/lib/nojo/ensureNojoAgentIdentityScaffold";
+import { ensureUserWorkspaceAgentIdentityScaffold } from "@/lib/nojo/ensureUserWorkspaceAgentIdentityScaffold";
 import { canonicalizeAgentId } from "@/lib/nojo/agentIdCanonicalization";
+import { isUserCreatedWorkspaceAgentId } from "@/lib/workspace/userWorkspaceAgentServer";
+import { scheduleWorkspaceRemindersFromChat } from "@/lib/reminders/scheduleWorkspaceRemindersFromChat";
+import { getUserTimeZoneFromDb } from "@/lib/reminders/userTimeZoneDb";
 
 export const runtime = "nodejs";
 
@@ -72,7 +76,14 @@ export async function POST(req: NextRequest) {
         ? body.idempotencyKey.trim()
         : randomIdempotencyKey();
 
-    const scaffold = await ensureNojoAgentIdentityScaffold({ agentId });
+    const canonicalScaffold = await ensureNojoAgentIdentityScaffold({ agentId });
+    const teamScaffold = isUserCreatedWorkspaceAgentId(agentId)
+      ? await ensureUserWorkspaceAgentIdentityScaffold({ userId, agentId })
+      : null;
+    const scaffold =
+      isUserCreatedWorkspaceAgentId(agentId) && teamScaffold?.runtimeWorkspaceAbsPath
+        ? teamScaffold
+        : canonicalScaffold;
     const novaContentQa =
       agentId === "nojo-content" ? buildNovaContentQaPayload(scaffold) : undefined;
 
@@ -104,14 +115,48 @@ export async function POST(req: NextRequest) {
       agentId,
       prompt,
       isFirstUserMessage,
+      userId,
     });
-    const promptToSend = composed.isNojoAgent ? composed.composedPrompt : prompt;
+    let promptToSend = composed.isNojoAgent ? composed.composedPrompt : prompt;
+
+    const userTimeZone = await getUserTimeZoneFromDb(userId);
+    let reminderOutcome: Awaited<ReturnType<typeof scheduleWorkspaceRemindersFromChat>>;
+    try {
+      reminderOutcome = await scheduleWorkspaceRemindersFromChat({
+        userId,
+        conversationId,
+        agentId,
+        userTimeZone,
+        prompt,
+      });
+    } catch (remErr) {
+      const msg = remErr instanceof Error ? remErr.message : String(remErr);
+      reminderOutcome = {
+        scheduled: [],
+        errors: [msg],
+        confirmationBlock: `NOJO_REMINDER_ERRORS: Could not reach OpenClaw Gateway to schedule reminders (${msg}). The user message is still being sent.`,
+      };
+    }
+    if (reminderOutcome.confirmationBlock) {
+      promptToSend = `${promptToSend}\n\n${reminderOutcome.confirmationBlock}`;
+    }
+    if (reminderOutcome.scheduled.length > 0) {
+      console.info("[openclaw-qa][send.reminders]", {
+        count: reminderOutcome.scheduled.length,
+        jobIds: reminderOutcome.scheduled.map((s) => s.jobId ?? null),
+        conversationId,
+        agentId,
+      });
+    }
+
     await bridge.sendUserMessage(promptToSend, idempotencyKey);
 
     return NextResponse.json({
       success: true,
       sessionKey: bridge.sessionKey,
       idempotencyKey,
+      scheduledReminders: reminderOutcome.scheduled,
+      reminderErrors: reminderOutcome.errors,
       isFirstUserMessage,
       firstTurnIdentityFallbackApplied: composed.firstTurnIdentityFallbackApplied,
       // TEMP(QA): remove after runtime scaffold verification signoff.

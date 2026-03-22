@@ -94,3 +94,16 @@ export function mergeSeedWithCustomRoster(
   if (!includeCustom) return [...seed];
   return [...seed, ...readCustomRoster()];
 }
+
+/** Merge seed with an explicit custom list (e.g. server roster + browser cache). */
+export function mergeSeedWithCustomRosterEntries(
+  seed: readonly NojoWorkspaceRosterEntry[],
+  custom: readonly TeamWorkspaceRosterEntry[],
+): TeamWorkspaceRosterEntry[] {
+  return [...seed, ...custom];
+}
+
+/** Replace browser-only roster cache (used after successful server sync). */
+export function setBrowserCustomRoster(agents: TeamWorkspaceRosterEntry[]): void {
+  writeCustomRoster(agents);
+}

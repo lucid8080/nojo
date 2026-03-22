@@ -46,7 +46,6 @@ export function TopNav({ items }: { items: readonly HeaderNavItem[] }) {
     if (match) return match;
     if (normalizedPathname === "/marketplace") return "overview";
     if (normalizedPathname === "/team") return "team";
-    if (normalizedPathname === "/analytics") return "analytics";
     return null;
   }, [items, normalizedPathname]);
 

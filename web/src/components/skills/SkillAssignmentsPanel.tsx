@@ -1,5 +1,7 @@
 "use client";
 
+import { useWorkspaceRosterFromContext } from "@/components/providers/WorkspaceRosterProvider";
+import { useHasMounted } from "@/lib/hooks/useHasMounted";
 import { normalizeAgentKey } from "@/lib/agentAvatars";
 import { NOJO_WORKSPACE_AGENTS } from "@/data/nojoWorkspaceRoster";
 import {
@@ -9,8 +11,9 @@ import {
   readOverrides,
 } from "@/lib/nojo/agentIdentityOverrides";
 import {
-  mergeSeedWithCustomRoster,
+  mergeSeedWithCustomRosterEntries,
   NOJO_TEAM_WORKSPACE_CHANGED,
+  readCustomRoster,
 } from "@/lib/nojo/teamWorkspaceStore";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -20,9 +23,10 @@ export function SkillAssignmentsPanel({
 }: {
   canonicalSkillId: string;
 }) {
-  /** 0 = SSR-like first paint; increment after mount and on storage events. */
   const [refresh, setRefresh] = useState(0);
   const [assignToId, setAssignToId] = useState("");
+  const { customAgents, loading } = useWorkspaceRosterFromContext();
+  const hasMounted = useHasMounted();
 
   useEffect(() => {
     setRefresh(1);
@@ -39,10 +43,15 @@ export function SkillAssignmentsPanel({
     };
   }, [bump]);
 
-  const roster = useMemo(
-    () => mergeSeedWithCustomRoster(NOJO_WORKSPACE_AGENTS, refresh > 0),
-    [refresh],
-  );
+  const roster = useMemo(() => {
+    const effective =
+      hasMounted && customAgents.length > 0
+        ? customAgents
+        : hasMounted && loading
+          ? readCustomRoster()
+          : [];
+    return mergeSeedWithCustomRosterEntries(NOJO_WORKSPACE_AGENTS, effective);
+  }, [hasMounted, customAgents, loading]);
 
   const { assignedAgents, availableToAssign } = useMemo(() => {
     const overrides = readOverrides();

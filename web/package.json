@@ -17,6 +17,7 @@
     "@noble/ed25519": "^2.1.1",
     "@prisma/client": "^6.9.0",
     "@tailwindcss/typography": "^0.5.19",
+    "chrono-node": "^2.9.0",
     "cron-parser": "^5.4.0",
     "gray-matter": "^4.0.3",
     "next": "16.1.6",

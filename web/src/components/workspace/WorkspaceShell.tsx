@@ -1,19 +1,22 @@
 "use client";
 
 import {
-  getConversation,
+  buildSyntheticJobContext,
   getJobContextForConversation,
   getMessagesForConversation,
+  type Conversation,
   type WorkspaceMessage,
   workspaceConversations,
 } from "@/data/workspaceChatMock";
 import { NOJO_WORKSPACE_AGENTS } from "@/data/nojoWorkspaceRoster";
 import { canonicalizeNojoAgentIdForClient } from "@/lib/nojo/agentIdentityMap";
 import type { NovaContentQaPayload } from "@/lib/nojo/nojoScaffoldQaTypes";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AgentIdentityProvider, useAgentIdentity } from "./AgentIdentityContext";
 import { ChatComposer } from "./ChatComposer";
 import { ConversationList } from "./ConversationList";
+import { CreateRoomDialog } from "./CreateRoomDialog";
 import { JobContextPanel } from "./JobContextPanel";
 import { MessageFeed } from "./MessageFeed";
 import { ThreadParticipantStrip } from "./ThreadParticipantStrip";
@@ -61,31 +64,24 @@ type OpenClawSseEvent =
     }
   | { type: "error"; message: string; code?: string; runId?: string };
 
-export function WorkspaceShell({
-  initialConversationId = null,
-}: {
-  /** When valid, selects this thread on load (e.g. deep link from the work board). */
-  initialConversationId?: string | null;
-}) {
+export function WorkspaceShell() {
   return (
     <AgentIdentityProvider baseRoster={NOJO_WORKSPACE_AGENTS}>
-      <WorkspaceShellInner initialConversationId={initialConversationId} />
+      <WorkspaceShellInner />
     </AgentIdentityProvider>
   );
 }
 
-function WorkspaceShellInner({
-  initialConversationId = null,
-}: {
-  initialConversationId?: string | null;
-}) {
+function WorkspaceShellInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const conversationFromUrl = searchParams.get("conversation")?.trim() ?? "";
   const defaultId = workspaceConversations[0]?.id ?? null;
-  const [selectedId, setSelectedId] = useState<string | null>(() => {
-    if (initialConversationId && getConversation(initialConversationId)) {
-      return initialConversationId;
-    }
-    return defaultId;
-  });
+  const [selectedId, setSelectedId] = useState<string | null>(defaultId);
+  const [apiConversations, setApiConversations] = useState<Conversation[]>([]);
+  const [conversationsFetched, setConversationsFetched] = useState(false);
+  const [createRoomOpen, setCreateRoomOpen] = useState(false);
+  const [createRoomMode, setCreateRoomMode] = useState<"chat" | "job_room">("chat");
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -136,6 +132,55 @@ function WorkspaceShellInner({
     fetchRecentRuns();
   }, [fetchRecentRuns]);
 
+  /** User-created rooms first (newest from API), then demo seed threads. */
+  const mergedConversations = useMemo(() => {
+    const seed = workspaceConversations;
+    const apiIds = new Set(apiConversations.map((c) => c.id));
+    const seedOnly = seed.filter((c) => !apiIds.has(c.id));
+    return [...apiConversations, ...seedOnly];
+  }, [apiConversations]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/workspace/conversations");
+        if (cancelled) return;
+        if (res.status === 401) {
+          setApiConversations([]);
+          return;
+        }
+        const json = (await res.json()) as {
+          success?: boolean;
+          conversations?: Conversation[];
+        };
+        if (res.ok && json?.success && Array.isArray(json.conversations)) {
+          setApiConversations(json.conversations);
+        }
+      } catch {
+        // ignore — seed threads still work offline
+      } finally {
+        if (!cancelled) setConversationsFetched(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!conversationsFetched) return;
+    const raw = conversationFromUrl;
+    if (!raw) return;
+    const found = mergedConversations.some((c) => c.id === raw);
+    if (found) {
+      setSelectedId(raw);
+    } else {
+      setSelectedId(defaultId);
+      router.replace("/workspace", { scroll: false });
+    }
+  }, [conversationsFetched, conversationFromUrl, mergedConversations, router, defaultId]);
+
   function uid() {
     if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
       return crypto.randomUUID();
@@ -158,8 +203,9 @@ function WorkspaceShellInner({
   }
 
   const conversation = useMemo(
-    () => (selectedId ? getConversation(selectedId) ?? null : null),
-    [selectedId],
+    () =>
+      selectedId ? mergedConversations.find((c) => c.id === selectedId) ?? null : null,
+    [selectedId, mergedConversations],
   );
 
   const { getAgent } = useAgentIdentity();
@@ -509,19 +555,31 @@ function WorkspaceShellInner({
       if (eventSourceRef.current === es) eventSourceRef.current = null;
     };
   }, [conversation]);
-  const jobContext = useMemo(
-    () => (selectedId ? getJobContextForConversation(selectedId) : null),
-    [selectedId],
+  const jobContext = useMemo(() => {
+    if (!selectedId || !conversation) return null;
+    return (
+      getJobContextForConversation(selectedId) ?? buildSyntheticJobContext(conversation)
+    );
+  }, [selectedId, conversation]);
+
+  const handleRoomCreated = useCallback(
+    (c: Conversation) => {
+      setApiConversations((prev) => [c, ...prev]);
+      setSelectedId(c.id);
+      setLeftOpen(false);
+      router.replace(`/workspace?conversation=${encodeURIComponent(c.id)}`, { scroll: false });
+    },
+    [router],
   );
 
-  const select = useCallback((id: string) => {
-    setSelectedId(id);
-    setLeftOpen(false);
-  }, []);
-
-  const showToast = useCallback((msg: string) => {
-    setToast(msg);
-  }, []);
+  const select = useCallback(
+    (id: string) => {
+      setSelectedId(id);
+      setLeftOpen(false);
+      router.replace(`/workspace?conversation=${encodeURIComponent(id)}`, { scroll: false });
+    },
+    [router],
+  );
 
   useEffect(() => {
     if (!toast) return;
@@ -736,11 +794,17 @@ function WorkspaceShellInner({
         <div className="hidden h-full min-h-0 overflow-hidden rounded-2xl border border-neutral-200/80 bg-white/50 shadow-sm dark:border-slate-800 dark:bg-slate-900/30 lg:flex lg:flex-col">
           <div className="min-h-0 flex-1 overflow-hidden">
             <ConversationList
-              conversations={workspaceConversations}
+              conversations={mergedConversations}
               selectedId={selectedId}
               onSelect={select}
-              onNewChat={() => showToast("New chat — connect API to create")}
-              onNewJobRoom={() => showToast("New job room — connect API to create")}
+              onNewChat={() => {
+                setCreateRoomMode("chat");
+                setCreateRoomOpen(true);
+              }}
+              onNewJobRoom={() => {
+                setCreateRoomMode("job_room");
+                setCreateRoomOpen(true);
+              }}
             />
           </div>
           <div className="max-h-[280px] min-h-0 shrink-0 overflow-hidden border-t border-neutral-200/80 dark:border-slate-800">
@@ -824,15 +888,17 @@ function WorkspaceShellInner({
             </div>
             <div className="min-h-0 flex-1 overflow-hidden">
               <ConversationList
-                conversations={workspaceConversations}
+                conversations={mergedConversations}
                 selectedId={selectedId}
                 onSelect={select}
                 onNewChat={() => {
-                  showToast("New chat — connect API");
+                  setCreateRoomMode("chat");
+                  setCreateRoomOpen(true);
                   setLeftOpen(false);
                 }}
                 onNewJobRoom={() => {
-                  showToast("New job room — connect API");
+                  setCreateRoomMode("job_room");
+                  setCreateRoomOpen(true);
                   setLeftOpen(false);
                 }}
               />
@@ -875,6 +941,13 @@ function WorkspaceShellInner({
           </div>
         </>
       ) : null}
+
+      <CreateRoomDialog
+        open={createRoomOpen}
+        onOpenChange={setCreateRoomOpen}
+        onCreated={handleRoomCreated}
+        mode={createRoomMode}
+      />
     </div>
   );
 }

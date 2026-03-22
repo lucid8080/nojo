@@ -3,12 +3,8 @@
 import type { WorkspaceAgent } from "@/data/workspaceChatMock";
 import { AvatarBubble } from "@/components/avatar/AvatarBubble";
 import { useWorkspaceAgent } from "@/components/workspace/AgentIdentityContext";
-import {
-  defaultAvatarFilename,
-  getAgentAvatarUrl,
-} from "@/lib/agentAvatars";
+import { useHydrationSafeAgentAvatarUrl } from "@/lib/hooks/useHydrationSafeAgentAvatarUrl";
 import { useResolvedAgentAccent } from "@/lib/nojo/useResolvedAgentAccent";
-import { useMemo } from "react";
 
 export function WorkspaceAgentAvatar({
   agent,
@@ -24,10 +20,7 @@ export function WorkspaceAgentAvatar({
   const effective = merged ?? agent;
   const visual = useResolvedAgentAccent(effective.id);
 
-  const src = useMemo(() => {
-    const fallback = `/avatar/${encodeURIComponent(defaultAvatarFilename(effective.id))}`;
-    return getAgentAvatarUrl(effective.id, { withDefault: true }) ?? fallback;
-  }, [effective.id]);
+  const src = useHydrationSafeAgentAvatarUrl(effective.id);
 
   const category =
     visual.kind === "palette" ? visual.categoryLabel : undefined;

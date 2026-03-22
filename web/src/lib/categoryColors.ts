@@ -29,6 +29,7 @@ export const AGENT_CATEGORY_COLORS: Record<string, CategoryColorName> = {
   MARKETING: "orange",
   "PAID MEDIA": "amber",
   PRODUCT: "cyan",
+  PROPERTY: "sky",
   "PROJECT MANAGEMENT": "teal",
   SALES: "green",
   "SPATIAL COMPUTING": "violet",

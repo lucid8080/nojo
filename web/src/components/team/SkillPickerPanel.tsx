@@ -1,7 +1,11 @@
 "use client";
 
-import type { ImportableSkill } from "@/data/teamPageMock";
-import { importableSkillsMock, skillCategories } from "@/data/teamPageMock";
+import { PremiumSkillBadge } from "@/components/skills/PremiumSkillBadge";
+import type { ImportableSkill } from "@/data/marketplaceSkillCatalog";
+import {
+  importableSkillsMock,
+  skillCategories,
+} from "@/data/marketplaceSkillCatalog";
 import { getCategoryFilterSelectedClasses } from "@/lib/categoryColors";
 import { useMemo, useState } from "react";
 
@@ -121,11 +125,14 @@ function SkillPickerRow({
           onChange={onToggle}
         />
         <span className="min-w-0 flex-1">
-          <span className="font-medium text-slate-900 dark:text-white">
-            <span aria-hidden className="mr-1">
+          <span className="flex flex-wrap items-center gap-1.5 font-medium text-slate-900 dark:text-white">
+            <span aria-hidden className="mr-0.5">
               {skill.icon}
             </span>
             {skill.name}
+            {skill.isPremium ? (
+              <PremiumSkillBadge className="shrink-0 align-middle" />
+            ) : null}
           </span>
           <span className="mt-0.5 block text-xs text-slate-500 dark:text-neutral-500">
             {skill.description}

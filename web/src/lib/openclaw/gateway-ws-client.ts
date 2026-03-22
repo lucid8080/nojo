@@ -76,6 +76,18 @@ type Pending = {
   timer: ReturnType<typeof setTimeout>;
 };
 
+/** Default scopes for chat and other interactive gateway use (no cron mutations). */
+export const DEFAULT_CHAT_GATEWAY_SCOPES = ["operator.read", "operator.write"] as const;
+
+export type OpenClawGatewayWsClientOptions = {
+  /**
+   * Declared operator scopes for the `connect` handshake. Chat uses {@link DEFAULT_CHAT_GATEWAY_SCOPES}.
+   * Cron RPCs such as `cron.add` require `operator.admin` on the gateway — use a separate client
+   * with broader scopes only for those calls (server-side; never exposed to browsers).
+   */
+  gatewayScopes?: string[];
+};
+
 /**
  * Minimal gateway WebSocket client: JSON-RPC-style req/res + event fan-out.
  *
@@ -91,9 +103,17 @@ export class OpenClawGatewayWsClient {
   private connectInFlight: Promise<void> | null = null;
   private handshakeDone = false;
   private readonly onWireEvent: (ev: GatewayWireEvent) => void;
+  private readonly gatewayScopes: string[];
 
-  constructor(onWireEvent: (ev: GatewayWireEvent) => void) {
+  constructor(
+    onWireEvent: (ev: GatewayWireEvent) => void,
+    options?: OpenClawGatewayWsClientOptions,
+  ) {
     this.onWireEvent = onWireEvent;
+    this.gatewayScopes =
+      options?.gatewayScopes && options.gatewayScopes.length > 0
+        ? [...options.gatewayScopes]
+        : [...DEFAULT_CHAT_GATEWAY_SCOPES];
     this.resetChallengeWaiter();
   }
 
@@ -244,7 +264,7 @@ export class OpenClawGatewayWsClient {
     } = await loadOrCreateOpenClawDeviceIdentity();
 
     const role = "operator";
-    const scopes = ["operator.read", "operator.write"];
+    const scopes = this.gatewayScopes;
 
     // Optional: if the gateway issues a per-device token, we persist and send it back.
     // Signature verification still uses `auth.token` (shared gateway token) because we

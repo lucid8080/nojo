@@ -1,105 +1,86 @@
 "use client";
 
-import type { AgencyAgent, AgencyAgentsPayload } from "@/data/agencyAgents.types";
-import { useEffect, useMemo, useState } from "react";
-import { AgentCard } from "./AgentCard";
+import { MarketplaceSkillCard } from "@/components/marketplace/MarketplaceSkillCard";
+import type { AgencyAgentsPayload } from "@/data/agencyAgents.types";
+import {
+  type MarketplaceSkillCardModel,
+  buildHomeSections,
+  filterMarketplaceItemsByFacet,
+  getMarketplaceFacetChips,
+  getMarketplaceSkillCardItems,
+  importableSkills,
+  marketplaceCardMatchesSearch,
+  mergeMarketplaceSkillItems,
+  sortMarketplaceCardItemsByTitle,
+} from "@/data/marketplaceSkillCatalog";
+import { useHasMounted } from "@/lib/hooks/useHasMounted";
+import { useMemo, useState } from "react";
 
 const FILTER_HOME = "HOME";
 const FILTER_ALL = "ALL";
 
-function divisionChipLabel(division: string) {
-  return division.replace(/-/g, " ").toUpperCase();
-}
-
-function pickFeaturedAllDivisions(agents: AgencyAgent[]): AgencyAgent[] {
-  const byDiv = new Map<string, AgencyAgent[]>();
-  for (const a of agents) {
-    if (!byDiv.has(a.division)) byDiv.set(a.division, []);
-    byDiv.get(a.division)!.push(a);
-  }
-  for (const arr of byDiv.values()) {
-    arr.sort((x, y) => x.title.localeCompare(y.title));
-  }
-  const divisions = [...byDiv.keys()].sort();
-  const featured: AgencyAgent[] = [];
-  let round = 0;
-  while (featured.length < 5) {
-    let added = false;
-    for (const d of divisions) {
-      const list = byDiv.get(d)!;
-      if (list[round] && featured.length < 5) {
-        featured.push(list[round]);
-        added = true;
-      }
-    }
-    if (!added) break;
-    round++;
-  }
-  return featured.slice(0, 5);
-}
-
-function sortByTitle(list: AgencyAgent[]) {
-  return [...list].sort((x, y) => x.title.localeCompare(y.title));
-}
-
-/** Case-insensitive match across title, description, category, division. */
-function agentMatchesSearch(agent: AgencyAgent, queryLower: string): boolean {
-  if (!queryLower) return true;
-  const hay = [
-    agent.title,
-    agent.description,
-    agent.categoryLabel,
-    agent.division,
-    divisionChipLabel(agent.division),
-  ]
-    .join(" ")
-    .toLowerCase();
-  return hay.includes(queryLower);
-}
-
-export function MarketplaceView({ data }: { data: AgencyAgentsPayload }) {
+export function MarketplaceView({
+  data,
+  cmsSkillModels = [],
+}: {
+  data: AgencyAgentsPayload;
+  cmsSkillModels?: MarketplaceSkillCardModel[];
+}) {
   const { agents, generatedAt } = data;
-  const divisions = useMemo(() => {
-    const s = new Set(agents.map((a) => a.division));
-    return [...s].sort();
-  }, [agents]);
+
+  const allItems = useMemo(() => {
+    const base = getMarketplaceSkillCardItems(data);
+    return mergeMarketplaceSkillItems(base, cmsSkillModels);
+  }, [data, cmsSkillModels]);
+
+  const facetChips = useMemo(
+    () =>
+      getMarketplaceFacetChips(
+        importableSkills,
+        agents,
+        cmsSkillModels.map((i) => i.categoryTag),
+      ),
+    [agents, cmsSkillModels],
+  );
+
+  const { featured: homeFeatured, popular: homePopular } = useMemo(
+    () => buildHomeSections(allItems, agents),
+    [allItems, agents],
+  );
+
+  const homeTotalShown = homeFeatured.length + homePopular.length;
 
   const [filter, setFilter] = useState<string>(FILTER_HOME);
   const [searchQuery, setSearchQuery] = useState("");
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => setMounted(true), []);
+  const hasMounted = useHasMounted();
 
   const searchLower = searchQuery.trim().toLowerCase();
   const isSearching = searchLower.length > 0;
 
-  const searchMatchedAgents = useMemo(() => {
+  const searchMatchedItems = useMemo(() => {
     if (!isSearching) return [];
-    return sortByTitle(agents.filter((a) => agentMatchesSearch(a, searchLower)));
-  }, [agents, searchLower, isSearching]);
+    return sortMarketplaceCardItemsByTitle(
+      allItems.filter((i) => marketplaceCardMatchesSearch(i, searchLower)),
+    );
+  }, [allItems, searchLower, isSearching]);
 
-  const { homeFeatured, homePopular } = useMemo(() => {
-    const feat = pickFeaturedAllDivisions(agents);
-    const ids = new Set(feat.map((a) => a.id));
-    const rest = sortByTitle(agents.filter((a) => !ids.has(a.id)));
-    return { homeFeatured: feat, homePopular: rest.slice(0, 15) };
-  }, [agents]);
-
-  const homeTotalShown = homeFeatured.length + homePopular.length;
-
-  const gridAgents = useMemo(() => {
+  const gridItems = useMemo(() => {
     if (filter === FILTER_HOME) return [];
-    if (filter === FILTER_ALL) return sortByTitle(agents);
-    return sortByTitle(agents.filter((a) => a.division === filter));
-  }, [agents, filter]);
+    if (filter === FILTER_ALL) {
+      return sortMarketplaceCardItemsByTitle(allItems);
+    }
+    return sortMarketplaceCardItemsByTitle(
+      filterMarketplaceItemsByFacet(allItems, filter),
+    );
+  }, [allItems, filter]);
 
-  const gridAgentsFiltered = useMemo(() => {
-    if (!isSearching) return gridAgents;
-    return gridAgents.filter((a) => agentMatchesSearch(a, searchLower));
-  }, [gridAgents, searchLower, isSearching]);
+  const gridItemsFiltered = useMemo(() => {
+    if (!isSearching) return gridItems;
+    return gridItems.filter((i) => marketplaceCardMatchesSearch(i, searchLower));
+  }, [gridItems, searchLower, isSearching]);
 
   const syncLabel = useMemo(() => {
-    if (!mounted) return "—";
+    if (!hasMounted) return "—";
     try {
       return new Date(generatedAt).toLocaleString(undefined, {
         dateStyle: "short",
@@ -108,32 +89,32 @@ export function MarketplaceView({ data }: { data: AgencyAgentsPayload }) {
     } catch {
       return generatedAt;
     }
-  }, [generatedAt, mounted]);
+  }, [generatedAt, hasMounted]);
 
   const showingLine = useMemo(() => {
     if (isSearching) {
       const n =
         filter === FILTER_HOME
-          ? searchMatchedAgents.length
-          : gridAgentsFiltered.length;
+          ? searchMatchedItems.length
+          : gridItemsFiltered.length;
       const q = searchQuery.trim();
       return `${n} skill${n === 1 ? "" : "s"} match “${q}”`;
     }
     if (filter === FILTER_HOME) {
-      return `${homeTotalShown} highlights of ${agents.length} skills (Home)`;
+      return `${homeTotalShown} highlights of ${allItems.length} skills (Home)`;
     }
     if (filter === FILTER_ALL) {
-      return `Showing all ${agents.length} skills`;
+      return `Showing all ${allItems.length} skills`;
     }
-    const n = agents.filter((a) => a.division === filter).length;
-    return `Showing ${n} of ${agents.length} skills`;
+    const n = filterMarketplaceItemsByFacet(allItems, filter).length;
+    return `Showing ${n} of ${allItems.length} skills`;
   }, [
     filter,
-    agents,
+    allItems,
     homeTotalShown,
     isSearching,
-    searchMatchedAgents.length,
-    gridAgentsFiltered.length,
+    searchMatchedItems.length,
+    gridItemsFiltered.length,
     searchQuery,
   ]);
 
@@ -143,6 +124,9 @@ export function MarketplaceView({ data }: { data: AgencyAgentsPayload }) {
     "bg-neutral-100/90 text-slate-600 hover:bg-neutral-200/90 hover:text-slate-900 dark:bg-slate-800/90 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-100";
   const chipActive =
     "bg-slate-900 text-white shadow-sm dark:bg-neutral-100 dark:text-slate-900";
+
+  const gridClass =
+    "grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5";
 
   return (
     <div>
@@ -205,14 +189,14 @@ export function MarketplaceView({ data }: { data: AgencyAgentsPayload }) {
         >
           All
         </button>
-        {divisions.map((d) => (
+        {facetChips.map((f) => (
           <button
-            key={d}
+            key={f.id}
             type="button"
-            onClick={() => setFilter(d)}
-            className={`${chipBase} ${filter === d ? chipActive : chipInactive}`}
+            onClick={() => setFilter(f.id)}
+            className={`${chipBase} ${filter === f.id ? chipActive : chipInactive}`}
           >
-            {divisionChipLabel(d)}
+            {f.label}
           </button>
         ))}
       </div>
@@ -224,10 +208,14 @@ export function MarketplaceView({ data }: { data: AgencyAgentsPayload }) {
       </p>
 
       {filter === FILTER_HOME && isSearching ? (
-        searchMatchedAgents.length > 0 ? (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-            {searchMatchedAgents.map((a) => (
-              <AgentCard key={a.id} agent={a} />
+        searchMatchedItems.length > 0 ? (
+          <div className={gridClass}>
+            {searchMatchedItems.map((item: MarketplaceSkillCardModel) => (
+              <MarketplaceSkillCard
+                key={item.id}
+                item={item}
+                variant="marketplace"
+              />
             ))}
           </div>
         ) : (
@@ -243,9 +231,13 @@ export function MarketplaceView({ data }: { data: AgencyAgentsPayload }) {
               <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-900 dark:text-neutral-100">
                 Featured
               </h2>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                {homeFeatured.map((a) => (
-                  <AgentCard key={a.id} agent={a} />
+              <div className={gridClass}>
+                {homeFeatured.map((item: MarketplaceSkillCardModel) => (
+                  <MarketplaceSkillCard
+                    key={item.id}
+                    item={item}
+                    variant="marketplace"
+                  />
                 ))}
               </div>
             </section>
@@ -255,9 +247,13 @@ export function MarketplaceView({ data }: { data: AgencyAgentsPayload }) {
               <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-900 dark:text-neutral-100">
                 Popular
               </h2>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                {homePopular.map((a) => (
-                  <AgentCard key={a.id} agent={a} />
+              <div className={gridClass}>
+                {homePopular.map((item: MarketplaceSkillCardModel) => (
+                  <MarketplaceSkillCard
+                    key={item.id}
+                    item={item}
+                    variant="marketplace"
+                  />
                 ))}
               </div>
             </section>
@@ -268,13 +264,17 @@ export function MarketplaceView({ data }: { data: AgencyAgentsPayload }) {
             </p>
           )}
         </>
-      ) : gridAgentsFiltered.length > 0 ? (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          {gridAgentsFiltered.map((a) => (
-            <AgentCard key={a.id} agent={a} />
+      ) : gridItemsFiltered.length > 0 ? (
+        <div className={gridClass}>
+          {gridItemsFiltered.map((item: MarketplaceSkillCardModel) => (
+            <MarketplaceSkillCard
+              key={item.id}
+              item={item}
+              variant="marketplace"
+            />
           ))}
         </div>
-      ) : gridAgents.length > 0 && isSearching ? (
+      ) : gridItems.length > 0 && isSearching ? (
         <p className="text-slate-500 dark:text-slate-400">
           No skills match your search in this category. Try a different
           keyword or pick &quot;All&quot;.

@@ -1,10 +1,9 @@
 "use client";
 
 import { AvatarBubble } from "@/components/avatar/AvatarBubble";
-import { getAgentAvatarUrl } from "@/lib/agentAvatars";
+import { useHydrationSafeAgentAvatarUrl } from "@/lib/hooks/useHydrationSafeAgentAvatarUrl";
 import type { CategoryColorName } from "@/lib/categoryColors";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
 
 /** Avatars in the header strip (demo collaborators or real workspace agent ids). */
 export type CollaboratorStripAgent =
@@ -67,10 +66,7 @@ function CollaboratorBubble({
   agent: NonAddStripAgent;
   onAgentClick?: (agentId: string) => void;
 }) {
-  const src = useMemo(
-    () => getAgentAvatarUrl(agent.id, { withDefault: true }),
-    [agent.id],
-  );
+  const src = useHydrationSafeAgentAvatarUrl(agent.id);
 
   const avatar = (
     <>

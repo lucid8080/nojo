@@ -1,5 +1,6 @@
 "use client";
 
+import { useWorkspaceRosterFromContext } from "@/components/providers/WorkspaceRosterProvider";
 import type {
   NojoWorkspaceRosterEntry,
   TeamWorkspaceRosterEntry,
@@ -10,10 +11,12 @@ import {
   NOJO_AGENT_IDENTITY_STORAGE_KEY,
   readOverrides,
 } from "@/lib/nojo/agentIdentityOverrides";
+import { useHasMounted } from "@/lib/hooks/useHasMounted";
 import {
-  mergeSeedWithCustomRoster,
+  mergeSeedWithCustomRosterEntries,
   NOJO_TEAM_WORKSPACE_CHANGED,
   NOJO_TEAM_WORKSPACE_STORAGE_KEY,
+  readCustomRoster,
 } from "@/lib/nojo/teamWorkspaceStore";
 import {
   createContext,
@@ -41,6 +44,8 @@ export function AgentIdentityProvider({
   baseRoster: readonly NojoWorkspaceRosterEntry[];
   children: ReactNode;
 }) {
+  const { customAgents, loading } = useWorkspaceRosterFromContext();
+  const hasMounted = useHasMounted();
   const [version, setVersion] = useState(0);
   const bump = useCallback(() => setVersion((v) => v + 1), []);
 
@@ -68,10 +73,17 @@ export function AgentIdentityProvider({
     };
   }, [bump]);
 
+  const effectiveCustom = useMemo(() => {
+    if (!hasMounted) return [];
+    if (customAgents.length > 0) return customAgents;
+    if (loading) return readCustomRoster();
+    return [];
+  }, [hasMounted, customAgents, loading]);
+
   const value = useMemo((): AgentIdentityContextValue => {
     const overrides = version === 0 ? null : readOverrides();
     const mergedRoster = mergeWorkspaceRosterList(
-      mergeSeedWithCustomRoster(baseRoster, version > 0),
+      mergeSeedWithCustomRosterEntries(baseRoster, effectiveCustom),
       overrides,
     );
     const byId = new Map(
@@ -81,7 +93,7 @@ export function AgentIdentityProvider({
       byId.get(id.toLowerCase()) ??
       mergedRoster.find((a) => a.id === id);
     return { mergedRoster, getAgent };
-  }, [baseRoster, version]);
+  }, [baseRoster, version, effectiveCustom]);
 
   return (
     <AgentIdentityContext.Provider value={value}>

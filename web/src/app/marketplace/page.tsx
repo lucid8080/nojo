@@ -3,6 +3,7 @@ import { MarketplaceView } from "@/components/marketplace/MarketplaceView";
 import agencyData from "@/data/agencyAgents.json";
 import type { AgencyAgentsPayload } from "@/data/agencyAgents.types";
 import { headerNavItems } from "@/data/dashboardSampleData";
+import { getPublishedCmsMarketplaceModels } from "@/lib/skillCard/publishedSkillCards";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -12,7 +13,8 @@ export const metadata: Metadata = {
 
 const data = agencyData as AgencyAgentsPayload;
 
-export default function MarketplacePage() {
+export default async function MarketplacePage() {
+  const cmsSkillModels = await getPublishedCmsMarketplaceModels();
   return (
     <div className="min-h-screen bg-gradient-to-b from-neutral-100 via-neutral-50 to-sky-50/20 text-slate-900 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900 dark:text-neutral-50">
       <TopNav items={headerNavItems} />
@@ -27,7 +29,7 @@ export default function MarketplacePage() {
             Agent skills
           </h1>
         </header>
-        <MarketplaceView data={data} />
+        <MarketplaceView data={data} cmsSkillModels={cmsSkillModels} />
       </main>
     </div>
   );

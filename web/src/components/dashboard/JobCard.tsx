@@ -65,7 +65,7 @@ export function JobCard({
         </div>
         <div>
           <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-neutral-500">
-            Thread participants
+            {workspaceConversationId ? "Assigned agent(s)" : "Thread participants"}
           </p>
           <AgentAvatarGroup agents={job.agents} agentIds={job.agentIds} max={5} />
           {workspaceConversationId && job.primaryAgentName ? (

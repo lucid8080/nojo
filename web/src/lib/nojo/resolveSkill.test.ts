@@ -34,6 +34,15 @@ describe("resolveSkillByCanonicalId", () => {
     }
   });
 
+  it("resolves premium importable skill with metadata", () => {
+    const r = resolveSkillByCanonicalId("sk-9");
+    expect(r?.kind).toBe("importable");
+    if (r?.kind === "importable") {
+      expect(r.skill.name).toBe("Ontario residential tenancy");
+      expect(r.skill.isPremium).toBe(true);
+    }
+  });
+
   it("resolves agency skill", () => {
     const id = "testing/testing-accessibility-auditor.md";
     const r = resolveSkillByCanonicalId(id);

@@ -1,6 +1,7 @@
 "use client";
 
 import { AgentAvatarPicker } from "@/components/avatar/AgentAvatarPicker";
+import { useWorkspaceRosterFromContext } from "@/components/providers/WorkspaceRosterProvider";
 import { SkillPickerPanel } from "@/components/team/SkillPickerPanel";
 import { AGENT_CREATION_TEMPLATES } from "@/lib/nojo/agentCreationTemplates";
 import { initialsFromDisplayName } from "@/lib/nojo/agentDisplayName";
@@ -15,7 +16,7 @@ import {
   type CategoryColorName,
   getAgentAvatarFrameClassFromAgent,
 } from "@/lib/categoryColors";
-import { importableSkillsMock } from "@/data/teamPageMock";
+import { importableSkillsMock } from "@/data/marketplaceSkillCatalog";
 import { recommendedSkillIdsForRole } from "@/lib/nojo/skillCatalog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -50,6 +51,8 @@ export function CreateAgentSheet({
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
   const [skillIds, setSkillIds] = useState<string[]>([]);
   const [hint, setHint] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const { refresh: refreshWorkspaceRoster } = useWorkspaceRosterFromContext();
 
   const template = useMemo(
     () =>
@@ -114,22 +117,22 @@ export function CreateAgentSheet({
     );
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     const displayName = name.trim();
     if (!displayName) {
       setHint("Add a display name");
       return;
     }
     const initials = initialsFromDisplayName(displayName);
-    appendCustomAgent({
+    const rosterRow = {
       id: draftId,
       name: displayName,
       initials,
       role: role.trim() || "Role not set",
       avatarClass: rosterAvatarClass,
       categoryLabel: template.categoryLabel || "SPECIALIZED",
-    });
-    patchOverride(draftId, {
+    };
+    const identityPayload = {
       name: displayName,
       role: role.trim(),
       initials,
@@ -140,9 +143,59 @@ export function CreateAgentSheet({
       avatarFile,
       avatarAccent: accentKey ?? "",
       assignedSkillIds: skillIds.length ? skillIds : [],
-    });
-    onCreated(draftId);
-    onClose();
+    };
+
+    setHint(null);
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/workspace/roster", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          agentId: draftId,
+          name: rosterRow.name,
+          initials: rosterRow.initials,
+          role: rosterRow.role,
+          avatarClass: rosterRow.avatarClass,
+          categoryLabel: rosterRow.categoryLabel,
+          identity: identityPayload,
+        }),
+      });
+
+      if (res.status === 401) {
+        appendCustomAgent(rosterRow);
+        patchOverride(draftId, identityPayload);
+        await refreshWorkspaceRoster();
+        onCreated(draftId);
+        onClose();
+        return;
+      }
+
+      const json = (await res.json()) as { success?: boolean; message?: string };
+      if (!res.ok || !json.success) {
+        setHint(json.message ?? "Could not save agent. Saved locally only.");
+        appendCustomAgent(rosterRow);
+        patchOverride(draftId, identityPayload);
+        await refreshWorkspaceRoster();
+        onCreated(draftId);
+        onClose();
+        return;
+      }
+
+      patchOverride(draftId, identityPayload);
+      await refreshWorkspaceRoster();
+      onCreated(draftId);
+      onClose();
+    } catch {
+      setHint("Network error — saved to this browser only.");
+      appendCustomAgent(rosterRow);
+      patchOverride(draftId, identityPayload);
+      await refreshWorkspaceRoster();
+      onCreated(draftId);
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   const rec = useMemo(
@@ -377,15 +430,17 @@ export function CreateAgentSheet({
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={handleSubmit}
-                className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 dark:bg-neutral-100 dark:text-slate-900 dark:hover:bg-white"
+                disabled={submitting}
+                onClick={() => void handleSubmit()}
+                className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-neutral-100 dark:text-slate-900 dark:hover:bg-white"
               >
-                Create agent
+                {submitting ? "Saving…" : "Create agent"}
               </button>
               <button
                 type="button"
+                disabled={submitting}
                 onClick={onClose}
-                className="rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm dark:border-slate-600 dark:bg-slate-800 dark:text-neutral-100"
+                className="rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-neutral-100"
               >
                 Cancel
               </button>

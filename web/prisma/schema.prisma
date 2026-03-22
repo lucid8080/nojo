@@ -8,13 +8,94 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum SkillCardStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum SkillCardSourceType {
+  MANUAL
+  IMPORTED_MARKDOWN
+  IMPORTED_SKILL
+  OTHER
+}
+
+/// CMS skill definition card (full markdown body); public when PUBLISHED.
+model SkillCard {
+  id                     String              @id @default(cuid())
+  slug                   String              @unique
+  title                  String
+  summary                String
+  category               String
+  /// JSON array of tag strings
+  tags                   Json                @default("[]")
+  status                 SkillCardStatus     @default(DRAFT)
+  fullDefinitionMarkdown String
+  sourceType             SkillCardSourceType?
+  sourcePath             String?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+
+  @@index([status])
+}
+
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  runs      Run[]
+  id                     String                  @id @default(cuid())
+  email                  String                  @unique
+  name                   String?
+  /// IANA timezone for scheduling (e.g. America/Toronto). Used when parsing local times in reminders.
+  timeZone               String?
+  role                   UserRole                @default(USER)
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  runs                   Run[]
+  workspaceConversations WorkspaceConversation[]
+  workspaceAgents        UserWorkspaceAgent[]
+
+  @@index([createdAt])
+}
+
+/// User-created Agent Workspace roster row (stable `agentId` e.g. nojo-team-{uuid}).
+model UserWorkspaceAgent {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agentId         String
+  name            String
+  initials        String
+  role            String
+  avatarClass     String
+  categoryLabel   String?
+  /// Optional JSON: NojoAgentIdentityOverride fields (description, skills, avatar file, etc.)
+  identityJson    Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, agentId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+/// User-scoped Agent Workspace room; `id` is the client/OpenClaw `conversationId`.
+model WorkspaceConversation {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title          String
+  description    String?
+  /// JSON array of agent ids (built-in nojo-* and/or user nojo-team-*)
+  agentIds       Json
+  primaryAgentId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model Run {
@@ -30,4 +111,7 @@ model Run {
   updatedAt      DateTime @updatedAt
   userId         String
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([status])
 }

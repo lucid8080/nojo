@@ -3,6 +3,13 @@
  */
 
 import type { CategoryColorName } from "@/lib/categoryColors";
+export type {
+  ImportableSkill,
+} from "@/data/marketplaceSkillCatalog";
+export {
+  importableSkillsMock,
+  skillCategories,
+} from "@/data/marketplaceSkillCatalog";
 
 export type TeamAgentStatus = "active" | "idle" | "busy" | "paused" | "archived";
 
@@ -35,6 +42,8 @@ export type TeamAgent = {
   vibe?: string;
   /** Marketplace skill ids assigned in workspace metadata (resolved to names in `installedSkills`). */
   assignedSkillIds?: string[];
+  /** Roster accent class when mapped from workspace API (optional). */
+  avatarClass?: string;
 };
 
 export type TeamStats = {
@@ -42,15 +51,6 @@ export type TeamStats = {
   activeNow: number;
   onTasks: number;
   savedSkillPacks: number;
-};
-
-export type ImportableSkill = {
-  id: string;
-  name: string;
-  category: string;
-  description: string;
-  compatibility: string;
-  icon: string;
 };
 
 export const teamStatsMock: TeamStats = {
@@ -200,75 +200,3 @@ export const teamAgentsMock: TeamAgent[] = [
     ],
   },
 ];
-
-export const importableSkillsMock: ImportableSkill[] = [
-  {
-    id: "sk-1",
-    name: "Deep research",
-    category: "Research",
-    description: "Multi-step web research with source aggregation and summaries.",
-    compatibility: "All agents",
-    icon: "🔍",
-  },
-  {
-    id: "sk-2",
-    name: "CRM sync",
-    category: "Integrations",
-    description: "Push notes and tasks to Salesforce / HubSpot automatically.",
-    compatibility: "Sales & CS agents",
-    icon: "🔗",
-  },
-  {
-    id: "sk-3",
-    name: "Code review assistant",
-    category: "Engineering",
-    description: "Suggests security and style fixes on pull requests.",
-    compatibility: "Engineering agents",
-    icon: "⚙️",
-  },
-  {
-    id: "sk-4",
-    name: "Brand voice",
-    category: "Content",
-    description: "Enforce tone and terminology from your style guide.",
-    compatibility: "Content agents",
-    icon: "✍️",
-  },
-  {
-    id: "sk-5",
-    name: "Meeting scribe",
-    category: "Productivity",
-    description: "Live notes, action items, and recap emails post-call.",
-    compatibility: "All agents",
-    icon: "📝",
-  },
-  {
-    id: "sk-6",
-    name: "Compliance check",
-    category: "Legal",
-    description: "Flag risky language in customer-facing drafts.",
-    compatibility: "Support & sales",
-    icon: "⚖️",
-  },
-  {
-    id: "sk-7",
-    name: "Data viz",
-    category: "Analytics",
-    description: "Turn tabular exports into chart-ready summaries.",
-    compatibility: "Research & ops",
-    icon: "📊",
-  },
-  {
-    id: "sk-8",
-    name: "Multilingual reply",
-    category: "Support",
-    description: "Draft replies in 20+ languages with glossary locks.",
-    compatibility: "Support agents",
-    icon: "🌐",
-  },
-];
-
-export const skillCategories = [
-  "All",
-  ...Array.from(new Set(importableSkillsMock.map((s) => s.category))),
-] as const;

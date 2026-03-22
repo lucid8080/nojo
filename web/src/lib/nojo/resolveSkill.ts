@@ -1,7 +1,7 @@
 import type { AgencyAgent, AgencyAgentsPayload } from "@/data/agencyAgents.types";
 import agencyData from "@/data/agencyAgents.json";
-import type { ImportableSkill } from "@/data/teamPageMock";
-import { importableSkillsMock } from "@/data/teamPageMock";
+import type { ImportableSkill } from "@/data/marketplaceSkillCatalog";
+import { importableSkillsMock } from "@/data/marketplaceSkillCatalog";
 
 const agencyPayload = agencyData as AgencyAgentsPayload;
 

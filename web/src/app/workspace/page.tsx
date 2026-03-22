@@ -5,24 +5,15 @@ import {
   collaboratorAgents,
   headerNavItems,
 } from "@/data/dashboardSampleData";
-import { workspaceConversations } from "@/data/workspaceChatMock";
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 export const metadata: Metadata = {
   title: "Agent workspace | Nojoblem",
   description: "Chat with hired AI agents across jobs and deliverables",
 };
 
-type Props = {
-  searchParams?: Promise<{ conversation?: string }>;
-};
-
-export default async function WorkspacePage({ searchParams }: Props) {
-  const sp = (await searchParams) ?? {};
-  const raw = typeof sp.conversation === "string" ? sp.conversation.trim() : "";
-  const initialConversationId =
-    raw && workspaceConversations.some((c) => c.id === raw) ? raw : null;
-
+export default async function WorkspacePage() {
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-gradient-to-b from-neutral-100 via-neutral-50 to-sky-50/20 text-slate-900 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900 dark:text-neutral-50">
       <TopNav items={headerNavItems} />
@@ -46,7 +37,15 @@ export default async function WorkspacePage({ searchParams }: Props) {
           <CollaboratorStrip agents={collaboratorAgents} />
         </div>
 
-        <WorkspaceShell initialConversationId={initialConversationId} />
+        <Suspense
+          fallback={
+            <div className="flex min-h-0 flex-1 items-center justify-center text-sm text-slate-500 dark:text-neutral-400">
+              Loading workspace…
+            </div>
+          }
+        >
+          <WorkspaceShell />
+        </Suspense>
       </main>
     </div>
   );

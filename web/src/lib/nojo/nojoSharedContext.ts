@@ -2,8 +2,17 @@ import "server-only";
 
 import fs from "node:fs/promises";
 import path from "node:path";
+
+import { bundledSkillEntriesForSkillIds } from "@/data/marketplaceSkillCatalog";
+import { prisma } from "@/lib/db";
+import { isUserCreatedWorkspaceAgentId } from "@/lib/workspace/userWorkspaceAgentServer";
+
 import { CANONICAL_NOJO_AGENT_IDS } from "./agentIdentityMap";
 import { resolveRepoNojoAgentTemplateRoot } from "./nojoAgentRepoPaths";
+import {
+  buildUserWorkspaceFirstTurnFallbackBlock,
+  userWorkspaceIdentityInputFromRow,
+} from "./userWorkspaceAgentIdentityMarkdown";
 
 const NOJO_AGENT_IDS = new Set<string>(CANONICAL_NOJO_AGENT_IDS);
 
@@ -144,39 +153,16 @@ function pickOptionalDocsForPrompt(prompt: string): NojoDocFile[] {
   return optional;
 }
 
-// Build the read-only shared context block for Nojo agents.
-// This is intentionally limited to reduce prompt bloat and avoid “personality bleed”.
-export async function composeNojoSharedContextPrompt(opts: {
-  agentId: string | undefined | null;
-  prompt: string;
-  /** When true, inject repo IDENTITY/SOUL so the model is role-aware even if runtime workspace lags. */
-  isFirstUserMessage?: boolean;
-}): Promise<{
-  composedPrompt: string;
+async function buildNojoProductSharedBlocks(rawPrompt: string): Promise<{
+  sharedBlock: string;
   injectedDocs: NojoDocFile[];
-  isNojoAgent: boolean;
-  firstTurnIdentityFallbackApplied: boolean;
 }> {
-  const rawPrompt = typeof opts.prompt === "string" ? opts.prompt.trim() : "";
-  const agentId = typeof opts.agentId === "string" ? opts.agentId : undefined;
-  const isFirstUserMessage = opts.isFirstUserMessage === true;
-
-  if (!rawPrompt) {
-    return { composedPrompt: "", injectedDocs: [], isNojoAgent: false, firstTurnIdentityFallbackApplied: false };
-  }
-
-  if (!isNojoAgentId(agentId)) {
-    // Do not inject Nojo shared docs into non-Nojo/personal/general agents.
-    return { composedPrompt: rawPrompt, injectedDocs: [], isNojoAgent: false, firstTurnIdentityFallbackApplied: false };
-  }
-
   const injectedDocs: NojoDocFile[] = [
     NOJO_DOC_FILES.ACTIVE_CONTEXT,
     NOJO_DOC_FILES.BRAND_VOICE,
   ];
   injectedDocs.push(...pickOptionalDocsForPrompt(rawPrompt));
 
-  // Load docs in parallel, preserving injectedDocs order.
   const docsContents = await Promise.all(injectedDocs.map(loadNojoDoc));
   const [active, brand, ...optionalContents] = docsContents;
   const optionalDocs = injectedDocs.slice(2);
@@ -191,13 +177,97 @@ export async function composeNojoSharedContextPrompt(opts: {
     );
   }
 
-  const sharedBlock = docBlocks.join("\n\n");
+  return { sharedBlock: docBlocks.join("\n\n"), injectedDocs };
+}
+
+// Build the read-only shared context block for Nojo agents.
+// This is intentionally limited to reduce prompt bloat and avoid “personality bleed”.
+export async function composeNojoSharedContextPrompt(opts: {
+  agentId: string | undefined | null;
+  prompt: string;
+  /** When true, inject repo IDENTITY/SOUL so the model is role-aware even if runtime workspace lags. */
+  isFirstUserMessage?: boolean;
+  /** Required to inject DB-backed identity for `nojo-team-*` agents. */
+  userId?: string | null;
+}): Promise<{
+  composedPrompt: string;
+  injectedDocs: NojoDocFile[];
+  isNojoAgent: boolean;
+  firstTurnIdentityFallbackApplied: boolean;
+}> {
+  const rawPrompt = typeof opts.prompt === "string" ? opts.prompt.trim() : "";
+  const agentId = typeof opts.agentId === "string" ? opts.agentId : undefined;
+  const isFirstUserMessage = opts.isFirstUserMessage === true;
+  const userId = typeof opts.userId === "string" && opts.userId.trim() !== "" ? opts.userId.trim() : undefined;
+
+  if (!rawPrompt) {
+    return { composedPrompt: "", injectedDocs: [], isNojoAgent: false, firstTurnIdentityFallbackApplied: false };
+  }
+
+  if (agentId && isUserCreatedWorkspaceAgentId(agentId) && userId) {
+    const row = await prisma.userWorkspaceAgent.findUnique({
+      where: { userId_agentId: { userId, agentId } },
+    });
+    if (!row) {
+      return { composedPrompt: rawPrompt, injectedDocs: [], isNojoAgent: false, firstTurnIdentityFallbackApplied: false };
+    }
+
+    const input = userWorkspaceIdentityInputFromRow(row);
+    const { sharedBlock, injectedDocs } = await buildNojoProductSharedBlocks(rawPrompt);
+
+    const bundled = bundledSkillEntriesForSkillIds(input.identity?.assignedSkillIds);
+    const bundledPaths =
+      bundled.length > 0
+        ? bundled.map((b) => `skills/${b.contentSlug}/SKILL.md`).join(", ")
+        : null;
+
+    const teamInstructions = [
+      `NOJO_USER_WORKSPACE_AGENT:`,
+      `You are a user-defined workspace agent. Use NOJO_SHARED_CONTEXT for product facts and brand tone.`,
+      `Stay in character per your IDENTITY/SOUL in the fallback block below; do not ask the user to pick your name, creature type, emoji, or vibe unless they explicitly want to change settings.`,
+      `Do not use a generic “just came online / who am I?” bootstrap — identity is already defined.`,
+      `Memory is scoped to the current agentId.`,
+      `If NOJO_SCHEDULED_REMINDERS appears in the prompt, the server already registered those times on the OpenClaw Gateway cron scheduler — confirm them; do not claim timed reminders are impossible or tell the user to use only a phone or calendar.`,
+      bundledPaths
+        ? `Bundled skill packs (read SKILL.md under each path first; references in skills/<slug>/references/): ${bundledPaths}`
+        : null,
+    ]
+      .filter((x): x is string => x != null)
+      .join(" ");
+
+    let firstTurnIdentityFallbackApplied = false;
+    let identityFallbackBlock: string | null = null;
+    if (isFirstUserMessage) {
+      identityFallbackBlock = buildUserWorkspaceFirstTurnFallbackBlock(input);
+      firstTurnIdentityFallbackApplied =
+        identityFallbackBlock != null && identityFallbackBlock.length > 0;
+    }
+
+    const composedPrompt = [
+      teamInstructions,
+      "",
+      sharedBlock,
+      ...(identityFallbackBlock ? ["", identityFallbackBlock, ""] : [""]),
+      "User request:",
+      rawPrompt,
+    ].join("\n");
+
+    return { composedPrompt, injectedDocs, isNojoAgent: true, firstTurnIdentityFallbackApplied };
+  }
+
+  if (!isNojoAgentId(agentId)) {
+    // Do not inject Nojo shared docs into non-Nojo/personal/general agents.
+    return { composedPrompt: rawPrompt, injectedDocs: [], isNojoAgent: false, firstTurnIdentityFallbackApplied: false };
+  }
+
+  const { sharedBlock, injectedDocs } = await buildNojoProductSharedBlocks(rawPrompt);
 
   const baseInstructions = [
     `NOJO_SHARED_CONTEXT (read-only reference).`,
     `Use this for product facts, decisions, roadmap, and brand tone constraints.`,
     `Do NOT adopt or copy any other agent identity/personality. Memory is scoped to the current agentId.`,
     `If something is missing or uncertain, ask clarifying questions instead of inventing facts.`,
+    `If NOJO_SCHEDULED_REMINDERS appears in the prompt, the server already created OpenClaw cron jobs for those times — confirm them; do not tell the user a timed reminder can only be done outside the app.`,
   ].join(" ");
 
   const supportRoleInstructions =

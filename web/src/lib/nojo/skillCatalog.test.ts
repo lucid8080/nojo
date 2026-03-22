@@ -10,6 +10,10 @@ describe("resolveSkillLabel", () => {
     expect(resolveSkillLabel("sk-1")).toBe("Deep research");
   });
 
+  it("resolves premium importable id", () => {
+    expect(resolveSkillLabel("sk-9")).toBe("Ontario residential tenancy");
+  });
+
   it("resolves agency catalog id to title", () => {
     expect(resolveSkillLabel("testing/testing-accessibility-auditor.md")).toBe(
       "Accessibility Auditor",
@@ -18,6 +22,12 @@ describe("resolveSkillLabel", () => {
 
   it("passes through unknown ids", () => {
     expect(resolveSkillLabel("unknown-skill-id")).toBe("unknown-skill-id");
+  });
+
+  it("formats cms canonical ids from slug", () => {
+    expect(resolveSkillLabel("cms:ontario-residential-tenancy")).toBe(
+      "Ontario Residential Tenancy",
+    );
   });
 });
 

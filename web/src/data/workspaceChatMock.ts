@@ -19,6 +19,10 @@ export type WorkspaceAgent = TeamWorkspaceRosterEntry;
 export type Conversation = {
   id: string;
   jobTitle: string;
+  /** Optional room/job blurb (API-backed rooms). */
+  description?: string;
+  /** ISO timestamp when the room was created (API-backed rooms). */
+  createdAt?: string;
   agents: WorkspaceAgent[];
   primaryAgentId: string;
   status: WorkspaceStatus;
@@ -132,6 +136,43 @@ export type JobContext = {
   activity: ActivityEvent[];
   deliverables: ContextDeliverable[];
 };
+
+/**
+ * Job context for threads that exist only as `Conversation` rows (no mock `JobContext` map entry).
+ */
+export function buildSyntheticJobContext(conversation: Conversation): JobContext {
+  const agentIds = conversation.agents.map((a) => a.id);
+  const createdIso = conversation.createdAt;
+  const activity: ActivityEvent[] = [];
+  if (createdIso) {
+    const d = new Date(createdIso);
+    activity.push({
+      id: "room-created",
+      label: "Room created",
+      time: Number.isNaN(d.getTime())
+        ? createdIso
+        : d.toLocaleString([], {
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+          }),
+      tone: "default",
+    });
+  }
+  return {
+    conversationId: conversation.id,
+    title: conversation.jobTitle,
+    description: conversation.description ?? "",
+    agentIds,
+    dueDate: "—",
+    progressPercent: 0,
+    files: [],
+    subtasks: [],
+    activity,
+    deliverables: [],
+  };
+}
 
 export const workspaceAgents: WorkspaceAgent[] = NOJO_WORKSPACE_AGENTS;
 

@@ -5,7 +5,9 @@ import {
   buildNovaContentQaPayload,
   ensureNojoAgentIdentityScaffold,
 } from "@/lib/nojo/ensureNojoAgentIdentityScaffold";
+import { ensureUserWorkspaceAgentIdentityScaffold } from "@/lib/nojo/ensureUserWorkspaceAgentIdentityScaffold";
 import { canonicalizeAgentId } from "@/lib/nojo/agentIdCanonicalization";
+import { isUserCreatedWorkspaceAgentId } from "@/lib/workspace/userWorkspaceAgentServer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,7 +49,14 @@ export async function GET(req: NextRequest) {
 
   const canonical = canonicalizeAgentId(requestedAgentId);
   const agentId = canonical.effectiveAgentId;
-  const scaffold = await ensureNojoAgentIdentityScaffold({ agentId });
+  const canonicalScaffold = await ensureNojoAgentIdentityScaffold({ agentId });
+  const teamScaffold = isUserCreatedWorkspaceAgentId(agentId)
+    ? await ensureUserWorkspaceAgentIdentityScaffold({ userId, agentId })
+    : null;
+  const scaffold =
+    isUserCreatedWorkspaceAgentId(agentId) && teamScaffold?.runtimeWorkspaceAbsPath
+      ? teamScaffold
+      : canonicalScaffold;
   const novaContentQa =
     agentId === "nojo-content" ? buildNovaContentQaPayload(scaffold) : undefined;
 
