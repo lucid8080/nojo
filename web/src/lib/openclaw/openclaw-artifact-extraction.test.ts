@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { extractArtifactsFromUnknownPayload } from "./openclaw-chat-bridge";
+import {
+  extractArtifactsFromUnknownPayload,
+  extractAssistantVisibleTextForTests,
+} from "./openclaw-chat-bridge";
 
 describe("extractArtifactsFromUnknownPayload", () => {
   it("extracts bytes from data: URLs inside attachment-like payloads", () => {
@@ -71,6 +74,52 @@ describe("extractArtifactsFromUnknownPayload", () => {
     expect(artifacts).toHaveLength(1);
     expect(artifacts[0].filename).toBe("draft.md");
     expect(artifacts[0].contentText).toBe("# Hello");
+  });
+
+  it("parses JSON-string payloads and extracts bytesBase64 attachments", () => {
+    const payload = JSON.stringify({
+      attachments: [
+        {
+          filename: "24hr-entry-notice-template.docx",
+          mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          bytesBase64: "SGVsbG8gd29ybGQ=",
+        },
+      ],
+    });
+
+    const artifacts = extractArtifactsFromUnknownPayload(payload);
+    expect(artifacts).toHaveLength(1);
+    expect(artifacts[0].filename).toBe("24hr-entry-notice-template.docx");
+    expect(artifacts[0].bytesBase64).toBe("SGVsbG8gd29ybGQ=");
+  });
+
+  it("does not surface raw JSON assistant messages that only contain attachments", () => {
+    const message = JSON.stringify({
+      attachments: [
+        {
+          filename: "note.txt",
+          mimeType: "text/plain",
+          bytesBase64: "SGVsbG8gd29ybGQ=",
+        },
+      ],
+    });
+
+    expect(extractAssistantVisibleTextForTests(message)).toBe("");
+  });
+
+  it("still surfaces assistant text when JSON-string payloads include a text field", () => {
+    const message = JSON.stringify({
+      text: "Here is your document.",
+      attachments: [
+        {
+          filename: "note.txt",
+          mimeType: "text/plain",
+          bytesBase64: "SGVsbG8gd29ybGQ=",
+        },
+      ],
+    });
+
+    expect(extractAssistantVisibleTextForTests(message)).toBe("Here is your document.");
   });
 });
 

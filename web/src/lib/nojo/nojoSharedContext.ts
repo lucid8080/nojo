@@ -177,6 +177,39 @@ async function buildNojoProductSharedBlocks(rawPrompt: string): Promise<{
     );
   }
 
+  const lower = rawPrompt.toLowerCase();
+  const wantsDurableExportContract =
+    /resume|cv|curriculum vitae|job\b|job hunting|job-hunt|export|download|document generation|docx|rtf|pdf|doc\b/i.test(
+      lower,
+    );
+
+  if (wantsDurableExportContract) {
+    docBlocks.push(
+      `---\nNOJO_DURABLE_FILES_EXPORT_CONTRACT\n---\n${[
+        "When you generate user-visible files (resumes, cover letters, job-search exports, DOCX/PDF/RTF/etc.), you MUST follow this contract:",
+        "",
+        "1) Canonical persistence signal",
+        "- The platform will only treat a file as saved when it is persisted through Nojo Durable Files.",
+        "- You must NOT claim success based on runtime/local filesystem paths (e.g. anything like projects/..., ./..., /workspace/..., or D:/.../agent/runtime/... ).",
+        "",
+        "2) Emit structured file artifacts (required)",
+        "- When exporting each file, include a structured artifact descriptor object (not just a path string).",
+        "- Your artifact descriptor MUST include: filename plus ONE of: bytesBase64 OR contentText OR tempPath.",
+        "- Optionally include `mimeType`.",
+        "",
+        "3) Where to put artifacts (required)",
+        "- Include the artifact descriptor under one of these top-level keys in your tool/output payload:",
+        "  - `attachments` (array) OR `files` (array) OR `artifacts` (array) OR `generatedFiles` (array)",
+        "",
+        "4) User-facing success messaging",
+        "- Do NOT output any filesystem paths as if they were the saved location.",
+        "- You can say something like: “Saved to your Files.” The UI will add the canonical saved filename after Durable Files persistence completes.",
+        "",
+        "If you cannot provide structured artifacts, do not claim success for file exports.",
+      ].join("\n")}`,
+    );
+  }
+
   return { sharedBlock: docBlocks.join("\n\n"), injectedDocs };
 }
 

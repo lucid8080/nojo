@@ -52,9 +52,64 @@ export type OpenClawChatBridgeEvent =
   | { type: "status"; phase: string; detail?: string }
   | { type: "error"; message: string; code?: string; runId?: string };
 
+const MAX_JSON_PARSE_BYTES = 50_000;
+
+function byteLengthUtf8(s: string): number {
+  return Buffer.byteLength(s, "utf8");
+}
+
+function looksLikeJsonString(s: string): boolean {
+  const t = s.trimStart();
+  return t.startsWith("{") || t.startsWith("[");
+}
+
+/**
+ * Gateways sometimes stringify structured assistant payloads. Parse only when it looks like JSON
+ * and is small enough to avoid accidental huge stringification costs.
+ */
+function maybeParseSmallJsonString(raw: string): unknown | null {
+  if (!looksLikeJsonString(raw)) return null;
+  if (byteLengthUtf8(raw) > MAX_JSON_PARSE_BYTES) return null;
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function objectHasArtifactContainerHints(o: Record<string, unknown>): boolean {
+  return Boolean(
+    o.attachments ||
+      o.files ||
+      o.artifacts ||
+      o.generatedFiles ||
+      o.generated_files ||
+      o.deliverables ||
+      o.outputs ||
+      o.outputFiles ||
+      o.output_files ||
+      o.documents,
+  );
+}
+
 function extractAssistantText(message: unknown): string {
   if (message == null) return "";
-  if (typeof message === "string") return message;
+  if (typeof message === "string") {
+    const parsed = maybeParseSmallJsonString(message);
+    if (parsed != null) {
+      const t = extractAssistantText(parsed);
+      if (t.trim()) return t;
+      if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+        const o = parsed as Record<string, unknown>;
+        if (objectHasArtifactContainerHints(o)) {
+          // Avoid dumping raw JSON into chat when the payload is mostly file metadata/bytes.
+          return "";
+        }
+      }
+      return t;
+    }
+    return message;
+  }
   if (typeof message === "object" && message !== null) {
     const o = message as Record<string, unknown>;
     const direct = o.text ?? o.content ?? o.body ?? o.delta ?? o.thinking;
@@ -233,6 +288,7 @@ export function extractArtifactsFromUnknownPayload(
 
   const candidateArrayKeys = [
     "artifacts",
+    "attachments",
     "files",
     "deliverables",
     "generatedFiles",
@@ -245,6 +301,14 @@ export function extractArtifactsFromUnknownPayload(
   const visit = (v: unknown, depth: number) => {
     if (depth > 4 || out.length >= 10) return;
     if (v == null) return;
+
+    if (typeof v === "string") {
+      const parsed = maybeParseSmallJsonString(v);
+      if (parsed != null) {
+        visit(parsed, depth + 1);
+      }
+      return;
+    }
 
     if (Array.isArray(v)) {
       for (const x of v) visit(x, depth + 1);
@@ -285,6 +349,13 @@ export function extractArtifactsFromUnknownPayload(
 }
 
 /**
+ * Exported for unit tests: mirrors assistant text extraction used for chat streaming.
+ */
+export function extractAssistantVisibleTextForTests(message: unknown): string {
+  return extractAssistantText(message);
+}
+
+/**
  * History rows may nest text under `parts` / `thinking` while `message` is a truthy empty object.
  * Try several shapes and return the first non-empty string.
  */
@@ -313,6 +384,41 @@ function extractHistoryItemText(o: Record<string, unknown>): string {
   }
   return "";
 }
+
+const DURABLE_FILES_DEBUG_ENABLED =
+  process.env.NOJO_DURABLE_FILES_DEBUG?.trim().toLowerCase() === "true";
+
+const DURABLE_FILES_DEBUG_TOP_LEVEL_KEY_HINTS = new Set<string>([
+  "attachments",
+  "files",
+  "artifacts",
+  "generatedFiles",
+  "generated_files",
+  "deliverables",
+  "outputFiles",
+  "output_files",
+  "outputs",
+  "documents",
+  "tempPath",
+  "temp_path",
+  "tempFilePath",
+  "temp_file_path",
+  "bytesBase64",
+  "bytes_base64",
+  "contentText",
+  "content_text",
+  "dataUrl",
+  "data_url",
+  "mimeType",
+  "mime_type",
+  "filename",
+  "fileName",
+  "file_name",
+  "name",
+  "bytes",
+  "content",
+  "text",
+]);
 
 /**
  * Map gateway / OpenAI-style transcript roles into workspace UI lanes.
@@ -631,6 +737,26 @@ export class OpenClawRoomBridge {
     if (ev.event === "connect.challenge") return;
 
     const p = ev.payload;
+
+    if (DURABLE_FILES_DEBUG_ENABLED && p && typeof p === "object") {
+      const o = p as Record<string, unknown>;
+      const keys = Object.keys(o);
+      const hints: string[] = [];
+      for (const k of keys) {
+        if (DURABLE_FILES_DEBUG_TOP_LEVEL_KEY_HINTS.has(k)) hints.push(k);
+      }
+      // Keep this log lightweight: no raw base64/bytes payload dumping.
+      const isChatPayload = isChatEventPayload(p);
+      console.info("[durable-files-debug][event]", {
+        ev: ev.event,
+        isChatPayload,
+        runId: isChatPayload ? p.runId : undefined,
+        state: isChatPayload ? p.state : undefined,
+        topKeysSample: keys.slice(0, 20),
+        artifactKeyHints: hints.slice(0, 20),
+      });
+    }
+
     if (isChatEventPayload(p) && p.sessionKey === this.sessionKey) {
       const textChunk = extractAssistantText(p.message);
       if (p.state === "delta") {
@@ -687,35 +813,6 @@ export class OpenClawRoomBridge {
           code: "CHAT_EVENT",
         });
         return;
-      }
-    }
-
-    // Non-legacy events: attempt best-effort artifact extraction from payloads
-    // that look like they might contain attachments/files.
-    if (!ev.event.startsWith("legacy.") && p && typeof p === "object") {
-      const o = p as Record<string, unknown>;
-      const looksLikeContainer =
-        "attachments" in o ||
-        "files" in o ||
-        "artifacts" in o ||
-        "generatedFiles" in o ||
-        "tempPath" in o ||
-        "temp_path" in o ||
-        "base64" in o ||
-        "bytes" in o ||
-        "content" in o;
-
-      if (looksLikeContainer) {
-        const artifacts = extractArtifactsFromUnknownPayload(p);
-        if (artifacts.length) {
-          const rid = typeof o.runId === "string" ? o.runId : undefined;
-          this.emit({
-            type: "artifacts",
-            runId: rid,
-            createdByAgentId: this.agentId,
-            artifacts,
-          });
-        }
       }
     }
 
