@@ -10,6 +10,7 @@ import "server-only";
  */
 
 import { OpenClawError } from "./client";
+import { resolveGatewayWsUrl } from "./gateway-url";
 import { OpenClawGatewayWsClient } from "./gateway-ws-client";
 
 /** Default scopes for `cron.add` / other cron mutations (gateway requires `operator.admin`). */
@@ -58,6 +59,24 @@ export type OpenClawCronAddResult = {
   jobId?: string;
 };
 
+export type OpenClawCronRpcSourceMeta = {
+  source: "openclaw_gateway_rpc";
+  transport: "ws";
+  method: "cron.add" | "cron.list" | "cron.status";
+  sourceDetail: string;
+  scopes: string[];
+};
+
+export type OpenClawCronListResult = OpenClawCronRpcSourceMeta & {
+  method: "cron.list";
+  raw: unknown;
+};
+
+export type OpenClawCronStatusResult = OpenClawCronRpcSourceMeta & {
+  method: "cron.status";
+  raw: unknown;
+};
+
 function extractJobId(raw: unknown): string | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const o = raw as Record<string, unknown>;
@@ -65,6 +84,49 @@ function extractJobId(raw: unknown): string | undefined {
     (typeof o.jobId === "string" && o.jobId.trim()) ||
     (typeof o.id === "string" && o.id.trim());
   return id || undefined;
+}
+
+function getGatewayRpcSourceDetail(): string {
+  try {
+    return resolveGatewayWsUrl().replace(/\?.*$/, "");
+  } catch {
+    return "(could not resolve OPENCLAW_GATEWAY_WS_URL / OPENCLAW_BASE_URL)";
+  }
+}
+
+function normalizeCronGatewayError(method: "cron.add" | "cron.list" | "cron.status", err: unknown): OpenClawError {
+  if (err instanceof OpenClawError) return err;
+  const message = err instanceof Error ? err.message : String(err);
+  const code = /timed?\s*out/i.test(message) ? "TIMEOUT" : "NETWORK";
+  return new OpenClawError(`${method} failed: ${message}`, { code });
+}
+
+async function callOpenClawCronRpc(
+  method: "cron.add" | "cron.list" | "cron.status",
+  params: unknown,
+  timeoutMs: number,
+): Promise<{ raw: unknown; sourceDetail: string; scopes: string[] }> {
+  const scopes = getCronGatewayScopesFromEnv();
+  const client = new OpenClawGatewayWsClient(
+    () => {
+      /* no streaming events needed */
+    },
+    { gatewayScopes: scopes },
+  );
+
+  try {
+    await client.connect();
+    const raw = await client.request(method, params, undefined, timeoutMs);
+    return { raw, sourceDetail: getGatewayRpcSourceDetail(), scopes };
+  } catch (err) {
+    throw normalizeCronGatewayError(method, err);
+  } finally {
+    try {
+      client.close();
+    } catch {
+      // ignore
+    }
+  }
 }
 
 /**
@@ -76,28 +138,45 @@ export async function callOpenClawCronAdd(
   payload: OpenClawCronAddPayload,
   opts?: { timeoutMs?: number },
 ): Promise<OpenClawCronAddResult> {
-  const client = new OpenClawGatewayWsClient(
-    () => {
-      /* no streaming events needed */
-    },
-    { gatewayScopes: getCronGatewayScopesFromEnv() },
-  );
   const timeoutMs = opts?.timeoutMs ?? 45_000;
 
   try {
-    await client.connect();
-    const raw = await client.request("cron.add", payload, undefined, timeoutMs);
+    const rpc = await callOpenClawCronRpc("cron.add", payload, timeoutMs);
+    const raw = rpc.raw;
     return { raw, jobId: extractJobId(raw) };
   } catch (err) {
-    if (err instanceof OpenClawError) throw err;
-    throw new OpenClawError(err instanceof Error ? err.message : String(err), {
-      code: "NETWORK",
-    });
-  } finally {
-    try {
-      client.close();
-    } catch {
-      // ignore
-    }
+    throw normalizeCronGatewayError("cron.add", err);
   }
+}
+
+export async function callOpenClawCronList(opts?: {
+  timeoutMs?: number;
+  params?: Record<string, unknown>;
+}): Promise<OpenClawCronListResult> {
+  const timeoutMs = opts?.timeoutMs ?? 20_000;
+  const rpc = await callOpenClawCronRpc("cron.list", opts?.params ?? {}, timeoutMs);
+  return {
+    source: "openclaw_gateway_rpc",
+    transport: "ws",
+    method: "cron.list",
+    sourceDetail: rpc.sourceDetail,
+    scopes: rpc.scopes,
+    raw: rpc.raw,
+  };
+}
+
+export async function callOpenClawCronStatus(
+  params: Record<string, unknown> = {},
+  opts?: { timeoutMs?: number },
+): Promise<OpenClawCronStatusResult> {
+  const timeoutMs = opts?.timeoutMs ?? 20_000;
+  const rpc = await callOpenClawCronRpc("cron.status", params, timeoutMs);
+  return {
+    source: "openclaw_gateway_rpc",
+    transport: "ws",
+    method: "cron.status",
+    sourceDetail: rpc.sourceDetail,
+    scopes: rpc.scopes,
+    raw: rpc.raw,
+  };
 }

@@ -11,6 +11,7 @@ import {
   parseAgentIdsJson,
   validateCreateWorkspaceConversationBodyAsync,
 } from "@/lib/workspace/workspaceConversationValidation";
+import { requireProjectOwnedByUser } from "@/lib/files/nojoFileAuth";
 
 export const runtime = "nodejs";
 
@@ -75,7 +76,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: validation.message }, { status: 400 });
     }
 
-    const { title, description, agentIds, primaryAgentId } = validation.value;
+    const { title, description, agentIds, primaryAgentId, projectId } = validation.value;
+
+    // Optional: validate project ownership before linking the conversation to it.
+    // We cannot rely on client-supplied IDs for authorization.
+    const projectIdValidated =
+      typeof projectId === "string" && projectId.trim().length > 0 ? projectId.trim() : null;
+    if (projectIdValidated) {
+      await requireProjectOwnedByUser({ userId, projectId: projectIdValidated });
+    }
 
     const row = await prisma.workspaceConversation.create({
       data: {
@@ -84,6 +93,7 @@ export async function POST(req: NextRequest) {
         description,
         agentIds,
         primaryAgentId,
+        projectId: projectIdValidated,
       },
     });
 

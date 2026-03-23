@@ -25,6 +25,90 @@ enum SkillCardSourceType {
   OTHER
 }
 
+enum FileCreatorType {
+  USER
+  AGENT
+}
+
+/// Durable user-owned container for arbitrary files and versioned revisions.
+model Project {
+  id String @id @default(cuid())
+
+  ownerUserId String
+  owner User @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+
+  name String
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  files ProjectFile[]
+  workspaceConversations WorkspaceConversation[]
+
+  @@index([ownerUserId])
+  @@index([createdAt])
+}
+
+/// Stable file identity inside a project (keeps metadata + pointer to current revision).
+model ProjectFile {
+  id String @id @default(cuid())
+
+  projectId String
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  ownerUserId String
+
+  filename String
+  mimeType String
+  extension String?
+  sizeBytes Int
+
+  currentRevisionId String? @unique
+  currentRevision FileRevision? @relation("CurrentProjectFileRevision", fields: [currentRevisionId], references: [id], onDelete: SetNull)
+
+  revisions FileRevision[] @relation("ProjectFileRevisions")
+
+  createdByType FileCreatorType @default(USER)
+  createdByUserId String?
+  createdByAgentId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  archivedAt DateTime?
+
+  @@index([projectId])
+  @@index([ownerUserId])
+  @@index([updatedAt])
+}
+
+/// Append-only revision history for a `ProjectFile`.
+model FileRevision {
+  id String @id @default(cuid())
+
+  projectFileId String
+  projectFile ProjectFile @relation("ProjectFileRevisions", fields: [projectFileId], references: [id], onDelete: Cascade)
+
+  currentOfProjectFile ProjectFile? @relation("CurrentProjectFileRevision")
+
+  versionNumber Int
+  storageKey String
+
+  mimeType String
+  sizeBytes Int
+  changeSummary String?
+
+  createdByType FileCreatorType @default(USER)
+  createdByUserId String?
+  createdByAgentId String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([projectFileId, versionNumber])
+  @@index([projectFileId])
+  @@index([createdAt])
+}
+
 /// CMS skill definition card (full markdown body); public when PUBLISHED.
 model SkillCard {
   id                     String              @id @default(cuid())
@@ -56,6 +140,7 @@ model User {
   runs                   Run[]
   workspaceConversations WorkspaceConversation[]
   workspaceAgents        UserWorkspaceAgent[]
+  projects               Project[]
 
   @@index([createdAt])
 }
@@ -91,6 +176,12 @@ model WorkspaceConversation {
   /// JSON array of agent ids (built-in nojo-* and/or user nojo-team-*)
   agentIds       Json
   primaryAgentId String
+  /// Optional durable-files organization link.
+  ///
+  /// Note: DB relation cannot enforce that Project.ownerUserId matches WorkspaceConversation.userId,
+  /// so we must validate ownership server-side.
+  projectId      String?
+  project         Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

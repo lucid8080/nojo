@@ -81,6 +81,9 @@ export function prismaRowToWorkspaceConversationDto(
     id: row.id,
     jobTitle: row.title,
     description: desc || undefined,
+    projectId: typeof (row as WorkspaceConversationRow & { projectId?: string | null }).projectId === "string"
+      ? (row as WorkspaceConversationRow & { projectId?: string | null }).projectId
+      : null,
     createdAt: createdIso,
     agents,
     primaryAgentId: row.primaryAgentId,

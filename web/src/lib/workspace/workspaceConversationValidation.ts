@@ -11,6 +11,7 @@ export type CreateWorkspaceConversationPayload = {
   description: string | null;
   agentIds: string[];
   primaryAgentId: string;
+  projectId?: string | null;
 };
 
 export type ValidationResult =
@@ -86,6 +87,15 @@ export function parseCreateWorkspaceConversationBody(body: unknown): ValidationR
     return { ok: false, message: "primaryAgentId must be one of the selected agents." };
   }
 
+  let projectId: string | null | undefined = undefined;
+  if (o.projectId !== undefined && o.projectId !== null) {
+    if (typeof o.projectId !== "string") {
+      return { ok: false, message: "projectId must be a string." };
+    }
+    const trimmed = o.projectId.trim();
+    projectId = trimmed.length > 0 ? trimmed : null;
+  }
+
   return {
     ok: true,
     value: {
@@ -93,6 +103,7 @@ export function parseCreateWorkspaceConversationBody(body: unknown): ValidationR
       description,
       agentIds,
       primaryAgentId: primaryRaw,
+      projectId,
     },
   };
 }

@@ -52,7 +52,7 @@ export function ChatComposer({
                 }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-neutral-50 dark:hover:bg-slate-700"
               >
-                <WorkspaceAgentAvatar agent={a} size={28} />
+                <WorkspaceAgentAvatar agent={a} size={28} enableDetailsButton={false} />
                 <span className="font-medium text-slate-800 dark:text-neutral-200">
                   {a.name}
                 </span>

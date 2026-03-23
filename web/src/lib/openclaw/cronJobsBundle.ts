@@ -1,4 +1,5 @@
-import { listOpenClawCronJobsFromGateway, OpenClawError } from "@/lib/openclaw/client";
+import { OpenClawError } from "@/lib/openclaw/client";
+import { callOpenClawCronList } from "@/lib/openclaw/openClawCronGateway";
 import {
   extractCronJobsArrayFromUnknown,
   normalizeOpenClawCronJobList,
@@ -50,13 +51,13 @@ export async function getCronJobsBundle(year: number, monthIndex: number) {
   const warnings: string[] = [];
 
   try {
-    const gw = await listOpenClawCronJobsFromGateway();
-    const jobsRaw = extractCronJobsArrayFromUnknown(gw.data);
+    const gw = await callOpenClawCronList();
+    const jobsRaw = extractCronJobsArrayFromUnknown(gw.raw);
     const jobs = normalizeOpenClawCronJobList(jobsRaw, { year, monthIndex });
     const withOcc = jobs.filter((j) => j.occurrencesInMonth.length > 0).length;
     // #region agent log
     {
-      const d = gw.data;
+      const d = gw.raw;
       const keys =
         d != null && typeof d === "object" && !Array.isArray(d)
           ? Object.keys(d as object).slice(0, 24)
@@ -126,7 +127,7 @@ export async function getCronJobsBundle(year: number, monthIndex: number) {
     if (isDiskFallbackDisabled()) {
       return sanitizeJsonForClient({
         success: false,
-        message: `OpenClaw gateway cron unavailable: ${detail}`,
+        message: `OpenClaw gateway RPC cron.list unavailable: ${detail}`,
         cronDataSource: "openclaw_gateway" as const,
         sourceDetail: "",
         sourcePath: "",
@@ -137,7 +138,9 @@ export async function getCronJobsBundle(year: number, monthIndex: number) {
       });
     }
 
-    warnings.push(`OpenClaw gateway unreachable; using local disk mirror. (${detail})`);
+    warnings.push(
+      `OpenClaw gateway RPC cron.list failed; using local disk mirror fallback only (degraded mode). (${detail})`,
+    );
 
     const disk = await readOpenClawCronJobsFromDisk();
     if (!disk.ok) {
@@ -145,7 +148,7 @@ export async function getCronJobsBundle(year: number, monthIndex: number) {
         success: false,
         message:
           disk.error ??
-          `OpenClaw gateway failed (${detail}) and no local cron mirror file could be read.`,
+          `OpenClaw gateway RPC cron.list failed (${detail}) and fallback disk cron mirror could not be read.`,
         cronDataSource: "disk_mirror" as const,
         sourceDetail: disk.resolvedPath,
         sourcePath: disk.resolvedPath,

@@ -3,6 +3,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { CronExpressionParser } from "cron-parser";
 import type {
+  NojoCronOwnership,
   OperationalScheduledJob,
   OperationalScheduleKind,
 } from "./openClawCronTypes";
@@ -18,9 +19,40 @@ function stableJobId(parts: string[]): string {
 }
 
 type RawJob = Record<string, unknown>;
+const NOJO_OWNERSHIP_PREFIX = "NOJO_OWNERSHIP_JSON:";
 
 function asRecord(v: unknown): RawJob | null {
   return v && typeof v === "object" && !Array.isArray(v) ? (v as RawJob) : null;
+}
+
+function parseNojoCronOwnershipFromDescription(description: string | null): NojoCronOwnership | null {
+  if (!description) return null;
+  const idx = description.indexOf(NOJO_OWNERSHIP_PREFIX);
+  if (idx < 0) return null;
+  const raw = description.slice(idx + NOJO_OWNERSHIP_PREFIX.length).trim();
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    const o = asRecord(parsed);
+    if (!o) return null;
+    if (o.source !== "nojo") return null;
+    if (typeof o.createdByUserId !== "string" || !o.createdByUserId.trim()) return null;
+    if (o.visibility !== "private" && o.visibility !== "workspace") return null;
+    const out: NojoCronOwnership = {
+      source: "nojo",
+      createdByUserId: o.createdByUserId.trim(),
+      visibility: o.visibility,
+    };
+    if (typeof o.createdByEmail === "string" && o.createdByEmail.trim()) {
+      out.createdByEmail = o.createdByEmail.trim();
+    }
+    if (typeof o.workspaceId === "string" && o.workspaceId.trim()) {
+      out.workspaceId = o.workspaceId.trim();
+    }
+    return out;
+  } catch {
+    return null;
+  }
 }
 
 function pickJobId(j: RawJob): string {
@@ -173,6 +205,8 @@ export function normalizeOpenClawJob(
     typeof j.agentId === "string" && j.agentId.trim() ? j.agentId.trim() : null;
   const sessionTarget = typeof j.sessionTarget === "string" ? j.sessionTarget : null;
   const wakeMode = typeof j.wakeMode === "string" ? j.wakeMode : null;
+  const description = typeof j.description === "string" ? j.description : null;
+  const ownership = parseNojoCronOwnershipFromDescription(description);
 
   const schedule = asRecord(j.schedule);
   let nextRunAt: string | null = null;
@@ -283,6 +317,7 @@ export function normalizeOpenClawJob(
     occurrencesInMonth,
     calendarPartial: calendarPartial || (scheduleKind === "unknown" && occurrencesInMonth.length === 0),
     warnings,
+    ownership,
   };
 }
 

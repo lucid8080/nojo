@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { getSessionUserId } from "@/lib/auth-server";
+import { prisma } from "@/lib/db";
 import { getOpenClawRoomBridge, type OpenClawChatBridgeEvent } from "@/lib/openclaw/openclaw-chat-bridge";
+import { persistAgentArtifact } from "@/lib/files/persistAgentArtifact";
 import {
   buildNovaContentQaPayload,
   ensureNojoAgentIdentityScaffold,
@@ -91,9 +93,147 @@ export async function GET(req: NextRequest) {
     start(controller) {
       const push = (ev: OpenClawChatBridgeEvent) => {
         try {
-          controller.enqueue(encoder.encode(sseLine("openclaw", ev)));
+          if (ev.type === "artifacts") {
+            void persistAndEmitArtifacts(ev);
+          } else {
+            controller.enqueue(encoder.encode(sseLine("openclaw", ev)));
+          }
         } catch {
           // closed
+        }
+      };
+
+      const resolveProjectIdForArtifact = async (): Promise<string> => {
+        // Prefer conversation-linked project if available.
+        const conversationRow = await prisma.workspaceConversation.findFirst({
+          where: { id: conversationId, userId },
+          select: { projectId: true, title: true, description: true },
+        });
+
+        if (conversationRow?.projectId) return conversationRow.projectId;
+
+        const titleLower = `${conversationRow?.title ?? ""} ${conversationRow?.description ?? ""}`.toLowerCase();
+        const agentLower = agentId.toLowerCase();
+        const hintLower = `${titleLower} ${agentLower}`;
+
+        const defaultName =
+          hintLower.includes("resume") || hintLower.includes("cv")
+            ? "Resume Drafts"
+            : hintLower.includes("job") || hintLower.includes("hunt")
+              ? "Job Hunt Drafts"
+              : "Chat Files";
+
+        const existing = await prisma.project.findFirst({
+          where: { ownerUserId: userId, name: defaultName },
+          select: { id: true },
+        });
+        if (existing) return existing.id;
+
+        const created = await prisma.project.create({
+          data: {
+            ownerUserId: userId,
+            name: defaultName,
+            description: null,
+          },
+          select: { id: true },
+        });
+
+        if (conversationRow && !conversationRow.projectId) {
+          await prisma.workspaceConversation.updateMany({
+            where: { id: conversationId, userId },
+            data: { projectId: created.id },
+          });
+        }
+
+        return created.id;
+      };
+
+      const persistAndEmitArtifacts = async (
+        ev: Extract<OpenClawChatBridgeEvent, { type: "artifacts" }>,
+      ) => {
+        const projectIdResolved = await resolveProjectIdForArtifact();
+
+        const runtimeWorkspaceAbsPath = scaffold.runtimeWorkspaceAbsPath ?? "";
+
+        for (const artifact of ev.artifacts) {
+          try {
+            const result = (() => {
+              if (artifact.bytesBase64) {
+                const bytes = Buffer.from(artifact.bytesBase64, "base64");
+                return persistAgentArtifact({
+                  userId,
+                  projectId: projectIdResolved,
+                  filename: artifact.filename,
+                  bytes,
+                  changeSummary: null,
+                  createdByType: "agent",
+                  createdByAgentId: ev.createdByAgentId ?? null,
+                });
+              }
+
+              if (artifact.contentText) {
+                const bytes = Buffer.from(artifact.contentText, "utf8");
+                return persistAgentArtifact({
+                  userId,
+                  projectId: projectIdResolved,
+                  filename: artifact.filename,
+                  bytes,
+                  changeSummary: null,
+                  createdByType: "agent",
+                  createdByAgentId: ev.createdByAgentId ?? null,
+                });
+              }
+
+              if (artifact.tempPath) {
+                return persistAgentArtifact({
+                  userId,
+                  projectId: projectIdResolved,
+                  filename: artifact.filename,
+                  tempPath: artifact.tempPath,
+                  runtimeWorkspaceAbsPath,
+                  changeSummary: null,
+                  createdByType: "agent",
+                  createdByAgentId: ev.createdByAgentId ?? null,
+                });
+              }
+
+              return null;
+            })();
+
+            if (!result) continue;
+
+            controller.enqueue(
+              encoder.encode(
+                sseLine("artifact_persisted", {
+                  fileId: result.file.id,
+                  projectId: result.file.projectId,
+                  filename: result.file.filename,
+                  mimeType: result.file.mimeType,
+                  extension: result.file.extension,
+                  sizeBytes: result.file.sizeBytes,
+                  revisionVersionNumber: result.file.currentRevision?.versionNumber,
+                  updatedAt: result.file.updatedAt,
+                }),
+              ),
+            );
+          } catch (e) {
+            const message = e instanceof Error ? e.message : "Failed to persist artifact.";
+            console.error("[openclaw][artifact_persisted][persist]", { message, artifact });
+            // Keep the stream going; client will still see chat deltas/final.
+            try {
+              controller.enqueue(
+                encoder.encode(
+                  sseLine("openclaw", {
+                    type: "status",
+                    phase: "artifact_persist_failed",
+                    detail: message,
+                  }),
+                ),
+              );
+            } catch {
+              // closed
+            }
+          }
         }
       };
 

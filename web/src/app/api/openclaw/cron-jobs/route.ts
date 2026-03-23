@@ -4,8 +4,13 @@ import {
   getCronJobsBundle,
   parseYearMonthFromSearchParams,
 } from "@/lib/openclaw/cronJobsBundle";
+import type { OperationalScheduledJob } from "@/lib/openclaw/openClawCronTypes";
 
 export const runtime = "nodejs";
+
+function asOperationalScheduledJobArray(value: unknown): OperationalScheduledJob[] {
+  return Array.isArray(value) ? (value as OperationalScheduledJob[]) : [];
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,7 +23,12 @@ export async function GET(req: NextRequest) {
     }
 
     const { year, monthIndex } = parseYearMonthFromSearchParams(req.nextUrl.searchParams);
-    const body = await getCronJobsBundle(year, monthIndex);
+    const body = await getCronJobsBundle(year, monthIndex) as Record<string, unknown>;
+    const jobs = asOperationalScheduledJobArray(body.jobs);
+    const filteredJobs = jobs.filter(
+      (job) => job.ownership?.source === "nojo" && job.ownership.createdByUserId === userId,
+    );
+    body.jobs = filteredJobs;
     return NextResponse.json(body);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

@@ -6,6 +6,20 @@
 
 export type OperationalScheduleKind = "recurring" | "one_time" | "interval" | "unknown";
 
+export type NojoCronVisibility = "private" | "workspace";
+
+export type NojoCronOwnership = {
+  source: "nojo";
+  createdByUserId: string;
+  visibility: NojoCronVisibility;
+  createdByEmail?: string;
+  /**
+   * Reserved for future real workspace model; currently informational only.
+   * Not used for authorization decisions yet.
+   */
+  workspaceId?: string;
+};
+
 export type OperationalScheduledJob = {
   id: string;
   name: string;
@@ -28,6 +42,8 @@ export type OperationalScheduledJob = {
   calendarPartial: boolean;
   /** Per-job parse/calendar warnings (e.g. invalid cron expression). */
   warnings: string[];
+  /** Parsed Nojo ownership metadata, if present and valid. */
+  ownership: NojoCronOwnership | null;
 };
 
 export type ReadOpenClawCronJobsResult =

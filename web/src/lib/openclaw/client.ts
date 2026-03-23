@@ -621,8 +621,12 @@ export async function cancelRun(runId: string): Promise<CancelRunResult> {
 }
 
 /**
- * Cron list HTTP paths on the OpenClaw gateway (canonical scheduler API).
- * Tries in order; 404 falls through. See OpenClaw cron jobs docs.
+ * LEGACY/DEPRECATED for schedules reads.
+ *
+ * This probes HTTP cron endpoints (`/api/cron`, `/cron`) and is kept only as a
+ * compatibility utility for non-canonical diagnostics or fallback tooling.
+ * Canonical schedule reads use gateway WS RPC (`cron.list`) via
+ * `openClawCronGateway.ts`.
  */
 const CRON_LIST_PATH_CANDIDATES = ["/api/cron", "/cron"];
 

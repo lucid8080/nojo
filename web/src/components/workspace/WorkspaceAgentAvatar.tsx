@@ -11,11 +11,21 @@ export function WorkspaceAgentAvatar({
   agent,
   size,
   className = "",
+  enableDetailsButton = true,
 }: {
   agent: WorkspaceAgent;
   /** Pixel size for the avatar circle (e.g. 28, 32, 36). */
   size: number;
   className?: string;
+  /**
+   * When the details sheet is available, this component normally renders a
+   * `<button>` wrapper so users can open the agent details.
+   *
+   * If this avatar is rendered inside another `<button>`, that would create
+   * invalid HTML (`<button>` cannot be a descendant of `<button>`), so callers
+   * must disable the details button wrapper.
+   */
+  enableDetailsButton?: boolean;
 }) {
   const merged = useWorkspaceAgent(agent.id);
   const effective = merged ?? agent;
@@ -42,7 +52,7 @@ export function WorkspaceAgentAvatar({
     />
   );
 
-  if (details) {
+  if (details && enableDetailsButton) {
     return (
       <button
         type="button"

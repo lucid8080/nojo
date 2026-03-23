@@ -252,7 +252,11 @@ export function CreateRoomDialog({
                             : "inline-flex items-center gap-1.5 rounded-full border border-neutral-200/90 bg-white py-1 pl-1 pr-3 text-xs font-medium text-slate-800 shadow-sm dark:border-slate-600 dark:bg-slate-800 dark:text-neutral-100"
                         }
                       >
-                        <WorkspaceAgentAvatar agent={a} size={24} />
+                        <WorkspaceAgentAvatar
+                          agent={a}
+                          size={24}
+                          enableDetailsButton={false}
+                        />
                         {a.name}
                       </button>
                     );

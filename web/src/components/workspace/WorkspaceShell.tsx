@@ -65,6 +65,17 @@ type OpenClawSseEvent =
     }
   | { type: "error"; message: string; code?: string; runId?: string };
 
+type ArtifactPersistedSseEvent = {
+  fileId: string;
+  projectId: string;
+  filename: string;
+  mimeType?: string;
+  extension?: string | null;
+  sizeBytes?: number;
+  revisionVersionNumber?: number | null;
+  updatedAt?: string;
+};
+
 export function WorkspaceShell() {
   return (
     <AgentIdentityProvider baseRoster={NOJO_WORKSPACE_AGENTS}>
@@ -616,13 +627,38 @@ function WorkspaceShellInner() {
       }
     };
 
+    const onArtifactPersisted = (ev: MessageEvent) => {
+      let data: ArtifactPersistedSseEvent;
+      try {
+        data = JSON.parse(ev.data) as ArtifactPersistedSseEvent;
+      } catch {
+        return;
+      }
+
+      const cid = conversation.id;
+      const sys: WorkspaceMessage = {
+        id: uid(),
+        type: "system",
+        createdAt: formatNowTime(),
+        body: `Saved to Files: ${data.filename} (Project: ${data.projectId})`,
+        sequence: nextSequence(),
+      };
+
+      setOpenClawMessagesByConversationId((prev) => ({
+        ...prev,
+        [cid]: [...(prev[cid] ?? []), sys],
+      }));
+    };
+
     es.addEventListener("openclaw", onOpenClaw as EventListener);
+    es.addEventListener("artifact_persisted", onArtifactPersisted as EventListener);
     es.onerror = () => {
       // EventSource auto-reconnects; avoid toast spam
     };
 
     return () => {
       es.removeEventListener("openclaw", onOpenClaw as EventListener);
+      es.removeEventListener("artifact_persisted", onArtifactPersisted as EventListener);
       es.close();
       if (eventSourceRef.current === es) eventSourceRef.current = null;
     };

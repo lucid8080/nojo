@@ -21,6 +21,8 @@ export type Conversation = {
   jobTitle: string;
   /** Optional room/job blurb (API-backed rooms). */
   description?: string;
+  /** Optional durable-files organization link. */
+  projectId?: string | null;
   /** ISO timestamp when the room was created (API-backed rooms). */
   createdAt?: string;
   agents: WorkspaceAgent[];

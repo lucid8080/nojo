@@ -42,32 +42,112 @@ function agentInitials(name: string): string {
   return name.slice(0, 2).toUpperCase();
 }
 
-function formatWhen(iso: string | null): string {
+function formatWhen(iso: string | null, timeZone?: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleString(undefined, {
     dateStyle: "medium",
     timeStyle: "short",
+    ...(timeZone && timeZone.trim() ? { timeZone: timeZone.trim() } : {}),
   });
+}
+
+function normalizeReminderTitle(name: string): string {
+  // Chat-scheduled reminder jobs are created as: "Nojo reminder {n}: {taskBody}"
+  // Keep other job names intact.
+  return name.replace(/^Nojo reminder\s+\d+:\s*/i, "").trim() || name;
+}
+
+function cleanJobSummaryForNonTechnicalUsers(summary: string): string {
+  const s = summary.trim();
+  if (!s) return "—";
+
+  // The chat reminder payload is currently:
+  //   [cron reminder] {taskBody}\n(Scheduled for ... — {tz}. Match: "...")...
+  if (s.toLowerCase().startsWith("[cron reminder]")) {
+    const rest = s.slice("[cron reminder]".length).trim();
+    return rest.split("\n")[0]!.trim() || "—";
+  }
+
+  // If we ever see the extra "(Scheduled for ...)" parenthetical, strip it.
+  const scheduledParenIdx = s.indexOf("(Scheduled for ");
+  if (scheduledParenIdx >= 0) return s.slice(0, scheduledParenIdx).trim() || "—";
+
+  // Fallback: first line only (avoids verbose JSON-ish payloads).
+  return s.split("\n")[0]!.trim() || "—";
+}
+
+function friendlyChannelName(channel: string): string {
+  const c = channel.trim().toLowerCase();
+  if (!c) return "";
+  const map: Record<string, string> = {
+    slack: "Slack",
+    whatsapp: "WhatsApp",
+    telegram: "Telegram",
+    imessage: "iMessage",
+    signal: "Signal",
+    discord: "Discord",
+    msteams: "Microsoft Teams",
+    msteams: "Microsoft Teams",
+    mattermost: "Mattermost",
+    last: "Last",
+    msteams: "Microsoft Teams",
+  };
+  return map[c] ?? c.charAt(0).toUpperCase() + c.slice(1);
+}
+
+function deliveryChipsFromDeliverySummary(deliverySummary: string | null): string[] {
+  if (!deliverySummary) return [];
+  const parts = deliverySummary
+    .split(" · ")
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  const mode = (parts[0] ?? "").toLowerCase();
+  const channel = parts[1] ?? "";
+
+  if (!mode) return [deliverySummary];
+
+  if (mode === "none") return ["Chat reminder"];
+  if (mode === "announce") {
+    const chips = ["Announcement"];
+    const friendly = channel ? friendlyChannelName(channel) : "";
+    if (friendly) chips.push(friendly);
+    return chips;
+  }
+  if (mode === "webhook") return ["Notification"];
+
+  const chips = [mode];
+  if (channel) {
+    const friendly = friendlyChannelName(channel);
+    if (friendly) chips.push(friendly);
+  }
+  return chips;
 }
 
 function ScheduleJobRow({
   job,
   resolveAgentLabel,
+  timeZone,
 }: {
   job: OperationalScheduledJob;
   resolveAgentLabel: (agentId: string | null) => string;
+  timeZone?: string | null;
 }) {
   const label = resolveAgentLabel(job.targetAgentId);
   const src = useHydrationSafeAgentAvatarUrl(label);
+  const jobTitle = normalizeReminderTitle(job.name);
+  const summary = cleanJobSummaryForNonTechnicalUsers(job.summary);
+  const deliveryChips = deliveryChipsFromDeliverySummary(job.deliverySummary);
+  const hasLastRun = typeof job.lastRunAt === "string" && job.lastRunAt.trim() !== "";
 
   return (
-    <div className="flex gap-4 rounded-xl border border-neutral-100/90 bg-neutral-50/70 p-4 shadow-sm dark:border-slate-700/60 dark:bg-slate-800/50 dark:shadow-black/10">
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-2">
+    <div className="flex gap-3 rounded-xl border border-neutral-100/90 bg-neutral-50/70 p-3 shadow-sm dark:border-slate-700/60 dark:bg-slate-800/50 dark:shadow-black/10">
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <p className="min-w-0 text-sm font-semibold leading-snug text-slate-900 dark:text-neutral-100">
-            {job.name}
+            {jobTitle}
           </p>
           <span
             className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
@@ -80,42 +160,87 @@ function ScheduleJobRow({
           </span>
           {job.calendarPartial ? (
             <span className="text-[10px] font-medium text-amber-700 dark:text-amber-300">
-              Limited preview
+              Preview may be incomplete
             </span>
           ) : null}
         </div>
 
-        <p className="font-mono text-xs text-slate-700 dark:text-neutral-300">{job.scheduleDisplay}</p>
+        {summary !== "—" ? (
+          <p className="text-xs text-slate-600 dark:text-neutral-400">{summary}</p>
+        ) : null}
 
-        <p className="text-xs text-slate-600 dark:text-neutral-400">{job.summary}</p>
-
-        <dl className="grid grid-cols-1 gap-x-4 gap-y-1 text-[11px] text-slate-500 dark:text-neutral-500 sm:grid-cols-2">
+        <dl
+          className={`grid grid-cols-1 gap-x-4 gap-y-1 text-[11px] text-slate-500 dark:text-neutral-500 ${
+            hasLastRun ? "sm:grid-cols-2" : ""
+          }`}
+        >
           <div>
             <dt className="font-medium text-slate-400 dark:text-neutral-600">Next run</dt>
-            <dd>{formatWhen(job.nextRunAt)}</dd>
+            <dd>{formatWhen(job.nextRunAt, timeZone)}</dd>
           </div>
+          {hasLastRun ? (
+            <div>
+              <dt className="font-medium text-slate-400 dark:text-neutral-600">Last run</dt>
+              <dd>{formatWhen(job.lastRunAt, timeZone)}</dd>
+            </div>
+          ) : null}
           <div>
-            <dt className="font-medium text-slate-400 dark:text-neutral-600">Last run</dt>
-            <dd>{formatWhen(job.lastRunAt)}</dd>
-          </div>
-          <div>
-            <dt className="font-medium text-slate-400 dark:text-neutral-600">Session</dt>
-            <dd className="truncate">{job.sessionTarget ?? "—"}</dd>
-          </div>
-          <div>
-            <dt className="font-medium text-slate-400 dark:text-neutral-600">Wake</dt>
-            <dd>{job.wakeMode ?? "—"}</dd>
+            <dt className="font-medium text-slate-400 dark:text-neutral-600">Will notify you by</dt>
+            <dd>
+              {deliveryChips.length ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {deliveryChips.map((c) => (
+                    <span
+                      key={c}
+                      className="inline-flex items-center rounded-md bg-white/80 px-2 py-0.5 text-[11px] font-medium text-slate-700 ring-1 ring-neutral-200/80 dark:bg-slate-900/60 dark:text-neutral-200 dark:ring-slate-600/80"
+                    >
+                      {c}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                "—"
+              )}
+            </dd>
           </div>
         </dl>
 
-        {job.deliverySummary ? (
-          <p className="text-[11px] text-slate-500 dark:text-neutral-500">
-            <span className="font-medium text-slate-400 dark:text-neutral-600">Delivery: </span>
-            {job.deliverySummary}
-          </p>
-        ) : null}
+        <details className="mt-1">
+          <summary className="cursor-pointer text-[11px] font-medium text-slate-600 dark:text-neutral-400">
+            Details
+          </summary>
+          <div className="mt-1 space-y-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="text-[11px] font-medium text-slate-500 dark:text-neutral-500">Schedule:</span>
+              <code className="break-all rounded bg-neutral-100/90 px-1.5 py-0.5 text-[10px] text-slate-700 dark:bg-slate-800/80 dark:text-neutral-200">
+                {job.scheduleDisplay}
+              </code>
+            </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500 dark:text-neutral-500">
+              <span>
+                <span className="font-medium text-slate-400 dark:text-neutral-600">Session:</span>{" "}
+                {job.sessionTarget ?? "—"}
+              </span>
+              <span>
+                <span className="font-medium text-slate-400 dark:text-neutral-600">Wake:</span> {job.wakeMode ?? "—"}
+              </span>
+            </div>
+
+            {job.warnings.length > 0 ? (
+              <div className="space-y-0.5">
+                <p className="text-[11px] font-medium text-amber-800 dark:text-amber-200/90">Heads-up</p>
+                <ul className="list-inside list-disc text-[10px] text-amber-800 dark:text-amber-200/90">
+                  {job.warnings.map((w) => (
+                    <li key={w}>{w}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+        </details>
+
+        <div className="flex flex-wrap items-center gap-1.5">
           <span className="inline-flex items-center gap-1 rounded-md bg-white/80 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600 ring-1 ring-neutral-200/80 dark:bg-slate-900/60 dark:text-neutral-400 dark:ring-slate-600/80">
             <AvatarBubble
               label={agentInitials(label)}
@@ -137,14 +262,6 @@ function ScheduleJobRow({
                   : "Schedule"}
           </span>
         </div>
-
-        {job.warnings.length > 0 ? (
-          <ul className="list-inside list-disc text-[10px] text-amber-800 dark:text-amber-200/90">
-            {job.warnings.map((w) => (
-              <li key={w}>{w}</li>
-            ))}
-          </ul>
-        ) : null}
       </div>
     </div>
   );
@@ -213,6 +330,8 @@ export function AgentScheduleCalendar() {
   );
 
   const today = useMemo(() => new Date(), []);
+  const [effectiveTimeZone, setEffectiveTimeZone] = useState<string | null>(null);
+  const [timeZoneLoading, setTimeZoneLoading] = useState(false);
   const [year, setYear] = useState(today.getFullYear());
   const [monthIndex, setMonthIndex] = useState(today.getMonth());
   const [selectedKey, setSelectedKey] = useState<string | null>(() => localDayKey(today));
@@ -236,6 +355,35 @@ export function AgentScheduleCalendar() {
     },
     [teamAgents],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    setTimeZoneLoading(true);
+    void (async () => {
+      try {
+        const res = await fetch("/api/user/settings", { cache: "no-store" });
+        if (!res.ok) return;
+        const json = (await res.json()) as {
+          success?: boolean;
+          effectiveTimeZone?: string | null;
+          timeZone?: string | null;
+        };
+        if (cancelled) return;
+        if (json.success) {
+          setEffectiveTimeZone(
+            typeof json.effectiveTimeZone === "string" ? json.effectiveTimeZone : json.timeZone ?? null,
+          );
+        }
+      } catch {
+        // If settings cannot be loaded, fall back to browser local time formatting.
+      } finally {
+        if (!cancelled) setTimeZoneLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const fetchJobs = useCallback(async () => {
     setLoading(true);
@@ -482,6 +630,7 @@ export function AgentScheduleCalendar() {
             {lastFetchedAt && !loading ? (
               <p className="mt-1 text-xs text-slate-500 dark:text-neutral-500">
                 Last updated {formatLastUpdated(lastFetchedAt)}
+                {timeZoneLoading ? " (loading time zone…)" : effectiveTimeZone ? ` (${effectiveTimeZone})` : null}
               </p>
             ) : null}
           </div>
@@ -602,10 +751,14 @@ export function AgentScheduleCalendar() {
                 : "No runs scheduled for this day."}
           </p>
         ) : (
-          <ul className="flex flex-col gap-4" aria-label="Scheduled jobs for selected day">
+          <ul className="flex flex-col gap-3" aria-label="Scheduled jobs for selected day">
             {selectedJobs.map((job) => (
               <li key={job.id}>
-                <ScheduleJobRow job={job} resolveAgentLabel={resolveAgentLabel} />
+                <ScheduleJobRow
+                  job={job}
+                  resolveAgentLabel={resolveAgentLabel}
+                  timeZone={effectiveTimeZone}
+                />
               </li>
             ))}
           </ul>

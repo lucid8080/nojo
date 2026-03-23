@@ -8,6 +8,7 @@ import {
   hasWorkspaceReminderIntent,
   parseWorkspaceReminderTimes,
 } from "@/lib/reminders/parseWorkspaceReminderTimes";
+import type { NojoCronOwnership } from "@/lib/openclaw/openClawCronTypes";
 
 export type ScheduledReminderResult = {
   jobId?: string;
@@ -33,6 +34,7 @@ export async function scheduleWorkspaceRemindersFromChat(input: {
   agentId: string;
   userTimeZone: string | null | undefined;
   prompt: string;
+  createdByEmail?: string | null;
 }): Promise<ScheduleWorkspaceRemindersOutcome> {
   const empty: ScheduleWorkspaceRemindersOutcome = {
     scheduled: [],
@@ -85,7 +87,15 @@ export async function scheduleWorkspaceRemindersFromChat(input: {
   });
   const sessionTarget = `session:${sessionKey}`;
   const taskBody = truncate(input.prompt.trim(), 500);
-  const meta = `nojo user=${input.userId} conversation=${input.conversationId} agent=${input.agentId}`;
+  const ownership: NojoCronOwnership = {
+    source: "nojo",
+    createdByUserId: input.userId,
+    visibility: "private",
+    ...(typeof input.createdByEmail === "string" && input.createdByEmail.trim()
+      ? { createdByEmail: input.createdByEmail.trim() }
+      : {}),
+  };
+  const meta = `NOJO_OWNERSHIP_JSON:${JSON.stringify(ownership)}`;
 
   const scheduled: ScheduledReminderResult[] = [];
   const errors: string[] = [];

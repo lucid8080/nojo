@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUserId } from "@/lib/auth-server";
-import { listOpenClawCronJobsFromGateway, OpenClawError, loadOpenClawConfig } from "@/lib/openclaw/client";
+import { OpenClawError, loadOpenClawConfig } from "@/lib/openclaw/client";
 import { extractCronJobsArrayFromUnknown } from "@/lib/openclaw/normalizeOpenClawCronJobs";
+import {
+  callOpenClawCronList,
+  callOpenClawCronStatus,
+} from "@/lib/openclaw/openClawCronGateway";
 import { readOpenClawCronJobsFromDisk } from "@/lib/openclaw/readOpenClawCronJobs";
 
 export const runtime = "nodejs";
@@ -62,12 +66,13 @@ export async function GET(_req: NextRequest) {
     }
 
     try {
-      const gw = await listOpenClawCronJobsFromGateway();
-      const jobsRaw = extractCronJobsArrayFromUnknown(gw.data);
+      const gw = await callOpenClawCronList();
+      const jobsRaw = extractCronJobsArrayFromUnknown(gw.raw);
       const responseTopLevelKeys =
-        gw.data != null && typeof gw.data === "object" && !Array.isArray(gw.data)
-          ? Object.keys(gw.data as object).slice(0, 16)
+        gw.raw != null && typeof gw.raw === "object" && !Array.isArray(gw.raw)
+          ? Object.keys(gw.raw as object).slice(0, 16)
           : [];
+      const cronStatus = await callOpenClawCronStatus().catch(() => null);
 
       return NextResponse.json({
         success: true,
@@ -75,10 +80,22 @@ export async function GET(_req: NextRequest) {
         diskFallbackAllowed,
         gateway: {
           reachable: true,
-          endpoint: gw.endpoint,
+          transport: gw.transport,
+          method: gw.method,
+          source: gw.source,
           sourceDetail: gw.sourceDetail,
+          scopes: gw.scopes,
           extractedJobCount: jobsRaw.length,
           responseTopLevelKeys,
+          cronStatus:
+            cronStatus != null
+              ? {
+                  transport: cronStatus.transport,
+                  method: cronStatus.method,
+                  source: cronStatus.source,
+                  sourceDetail: cronStatus.sourceDetail,
+                }
+              : undefined,
         },
       });
     } catch (gatewayErr) {

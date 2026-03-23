@@ -5,6 +5,29 @@ import { OpenClawGatewayWsClient, type GatewayWireEvent } from "./gateway-ws-cli
 import { buildWorkspaceGatewaySessionKey } from "./gateway-session-key";
 import { OpenClawError } from "./client";
 
+export type OpenClawAgentArtifactDescriptor = {
+  filename: string;
+  /**
+   * Optional MIME type from the tool/runtime.
+   * We do not trust this for security—durable persistence derives MIME type
+   * from the filename extension using `nojoFileTypes`.
+   */
+  mimeType?: string;
+  /**
+   * Base64-encoded bytes (JSON safe). Used when runtime returns bytes directly.
+   */
+  bytesBase64?: string;
+  /**
+   * Plain text content when runtime returns content as text (UTF-8).
+   */
+  contentText?: string;
+  /**
+   * Optional temp path under the agent/runtime workspace root.
+   * Durable persistence reads bytes server-side using traversal-safe checks.
+   */
+  tempPath?: string;
+};
+
 export type OpenClawChatBridgeEvent =
   | { type: "ready"; sessionKey: string }
   | {
@@ -18,6 +41,12 @@ export type OpenClawChatBridgeEvent =
   | { type: "delta"; runId: string; text: string }
   | { type: "final"; runId: string; text: string; stopReason?: string }
   | { type: "aborted"; runId: string; text?: string }
+  | {
+      type: "artifacts";
+      runId?: string;
+      createdByAgentId?: string;
+      artifacts: OpenClawAgentArtifactDescriptor[];
+    }
   | { type: "status"; phase: string; detail?: string }
   | { type: "error"; message: string; code?: string; runId?: string };
 
@@ -62,6 +91,119 @@ function extractAssistantText(message: unknown): string {
     }
   }
   return "";
+}
+
+function firstString(o: Record<string, unknown> | null | undefined, keys: string[]): string | undefined {
+  if (!o) return undefined;
+  for (const k of keys) {
+    const v = o[k];
+    if (typeof v === "string") {
+      const t = v.trim();
+      if (t.length > 0) return t;
+    }
+  }
+  return undefined;
+}
+
+function looksLikeBase64(s: string): boolean {
+  // Conservative heuristic: base64 is mostly [A-Za-z0-9+/] with optional trailing '='.
+  const t = s.trim();
+  if (t.length < 16) return false;
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(t)) return false;
+  if (t.length % 4 !== 0) return false;
+  return true;
+}
+
+function maybeArtifactFromObject(o: unknown): OpenClawAgentArtifactDescriptor | null {
+  if (!o || typeof o !== "object") return null;
+  const obj = o as Record<string, unknown>;
+
+  const filename =
+    firstString(obj, ["filename", "fileName", "file_name", "name", "originalFilename", "outputFilename"]) ?? "";
+  if (!filename.trim()) return null;
+
+  const mimeType = firstString(obj, ["mimeType", "mime_type", "contentType", "content_type", "mime"]);
+  const tempPath = firstString(obj, ["tempPath", "temp_path", "tempFilePath", "filePath", "path"]);
+
+  const bytesBase64Raw = firstString(obj, [
+    "bytesBase64",
+    "bytes_base64",
+    "base64",
+    "contentBase64",
+    "dataBase64",
+    "data_base64",
+  ]);
+  const bytesBase64 = bytesBase64Raw && looksLikeBase64(bytesBase64Raw) ? bytesBase64Raw : undefined;
+
+  const contentText =
+    firstString(obj, ["contentText", "content_text", "content", "text", "body", "string"]) ?? undefined;
+
+  if (!bytesBase64 && !contentText && !tempPath) return null;
+
+  return {
+    filename,
+    ...(mimeType ? { mimeType } : null),
+    ...(bytesBase64 ? { bytesBase64 } : null),
+    ...(contentText ? { contentText } : null),
+    ...(tempPath ? { tempPath } : null),
+  };
+}
+
+function extractArtifactsFromUnknownPayload(payload: unknown): OpenClawAgentArtifactDescriptor[] {
+  const out: OpenClawAgentArtifactDescriptor[] = [];
+  const seen = new Set<string>();
+
+  const candidateArrayKeys = [
+    "artifacts",
+    "files",
+    "deliverables",
+    "generatedFiles",
+    "generated_files",
+    "outputs",
+    "outputFiles",
+    "documents",
+  ];
+
+  const visit = (v: unknown, depth: number) => {
+    if (depth > 4 || out.length >= 10) return;
+    if (v == null) return;
+
+    if (Array.isArray(v)) {
+      for (const x of v) visit(x, depth + 1);
+      return;
+    }
+
+    if (typeof v !== "object") return;
+
+    const obj = v as Record<string, unknown>;
+    const direct = maybeArtifactFromObject(obj);
+    if (direct) {
+      const k = `${direct.filename}::${direct.tempPath ?? ""}::${direct.bytesBase64 ? "b64" : ""}::${direct.contentText ? "txt" : ""}`;
+      if (!seen.has(k)) {
+        seen.add(k);
+        out.push(direct);
+      }
+      return;
+    }
+
+    for (const k of candidateArrayKeys) {
+      const arr = obj[k];
+      if (!arr) continue;
+      if (Array.isArray(arr)) {
+        for (const x of arr) visit(x, depth + 1);
+      }
+    }
+
+    // Limited fallback recursion: if there are nested objects, search them.
+    for (const [, value] of Object.entries(obj)) {
+      if (typeof value !== "object" || value == null) continue;
+      visit(value, depth + 1);
+      if (out.length >= 10) break;
+    }
+  };
+
+  visit(payload, 0);
+  return out;
 }
 
 /**
@@ -456,9 +598,36 @@ export class OpenClawRoomBridge {
       if (t === "tool_call" || t === "tool_result") {
         const tool = typeof leg.tool === "string" ? leg.tool : "tool";
         this.emit({ type: "status", phase: String(t), detail: tool });
+
+        if (t === "tool_result") {
+          const rid = typeof leg.id === "string" ? leg.id : undefined;
+          const toolResultPayload =
+            (leg.payload ?? leg.result ?? leg.output ?? leg.data ?? leg) as unknown;
+          const artifacts = extractArtifactsFromUnknownPayload(toolResultPayload);
+          if (artifacts.length) {
+            this.emit({
+              type: "artifacts",
+              runId: rid,
+              createdByAgentId: this.agentId,
+              artifacts,
+            });
+          }
+        }
       }
       if (t === "response" && leg.payload && typeof leg.payload === "object") {
         const pay = leg.payload as Record<string, unknown>;
+
+        const artifacts = extractArtifactsFromUnknownPayload(pay);
+        if (artifacts.length) {
+          const rid = typeof leg.id === "string" ? leg.id : "legacy";
+          this.emit({
+            type: "artifacts",
+            runId: rid,
+            createdByAgentId: this.agentId,
+            artifacts,
+          });
+        }
+
         const txt = extractAssistantText(pay.text ?? pay);
         if (txt) {
           const rid = typeof leg.id === "string" ? leg.id : "legacy";
