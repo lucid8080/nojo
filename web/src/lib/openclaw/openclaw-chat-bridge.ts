@@ -1,5 +1,7 @@
 import "server-only";
 
+import path from "node:path";
+
 import { extractUserVisibleMessageFromNojoGatewayText } from "@/lib/nojo/extractUserVisibleChatMessage";
 import { OpenClawGatewayWsClient, type GatewayWireEvent } from "./gateway-ws-client";
 import { buildWorkspaceGatewaySessionKey } from "./gateway-session-key";
@@ -105,10 +107,29 @@ function firstString(o: Record<string, unknown> | null | undefined, keys: string
   return undefined;
 }
 
+function maybeParseDataUrlToBase64(dataUrl: string): string | null {
+  // Example: data:application/rtf;base64,SGVsbG8=
+  if (!dataUrl.trim().toLowerCase().startsWith("data:")) return null;
+  const m = dataUrl.match(/^data:([^;]+);(?:[^,;]*;)*base64,([^,]+)$/i);
+  if (!m) return null;
+  const b64 = m[2]?.trim();
+  if (!b64 || !looksLikeBase64(b64)) return null;
+  return b64;
+}
+
+function isByteArray(v: unknown): v is number[] {
+  if (!Array.isArray(v)) return false;
+  if (v.length === 0) return true;
+  return v.every(
+    (n) => typeof n === "number" && Number.isInteger(n) && n >= 0 && n <= 255,
+  );
+}
+
 function looksLikeBase64(s: string): boolean {
   // Conservative heuristic: base64 is mostly [A-Za-z0-9+/] with optional trailing '='.
   const t = s.trim();
-  if (t.length < 16) return false;
+  // MVP: allow short base64 payloads for tests; still conservative by regex + padding.
+  if (t.length < 8) return false;
   if (!/^[A-Za-z0-9+/]+={0,2}$/.test(t)) return false;
   if (t.length % 4 !== 0) return false;
   return true;
@@ -118,25 +139,80 @@ function maybeArtifactFromObject(o: unknown): OpenClawAgentArtifactDescriptor | 
   if (!o || typeof o !== "object") return null;
   const obj = o as Record<string, unknown>;
 
-  const filename =
-    firstString(obj, ["filename", "fileName", "file_name", "name", "originalFilename", "outputFilename"]) ?? "";
+  const tempPath =
+    firstString(obj, [
+      "tempPath",
+      "temp_path",
+      "tempFilePath",
+      "temp_file_path",
+      "localPath",
+      "localContentPath",
+      "local_content_path",
+      "filePath",
+      "file_path",
+      "outputPath",
+      "output_path",
+      "path",
+    ]) ?? undefined;
+
+  let filename =
+    firstString(obj, [
+      "filename",
+      "fileName",
+      "file_name",
+      "originalFilename",
+      "original_filename",
+      "outputFilename",
+      "output_filename",
+      "name",
+      "outputName",
+    ]) ?? "";
+  if (!filename.trim() && tempPath) {
+    const base = path.basename(tempPath);
+    if (base.trim().length) filename = base;
+  }
   if (!filename.trim()) return null;
 
   const mimeType = firstString(obj, ["mimeType", "mime_type", "contentType", "content_type", "mime"]);
-  const tempPath = firstString(obj, ["tempPath", "temp_path", "tempFilePath", "filePath", "path"]);
 
+  // Bytes can appear as base64 strings, data URLs, or numeric arrays.
+  let bytesBase64: string | undefined;
   const bytesBase64Raw = firstString(obj, [
     "bytesBase64",
     "bytes_base64",
-    "base64",
     "contentBase64",
+    "content_base64",
     "dataBase64",
     "data_base64",
+    "base64",
   ]);
-  const bytesBase64 = bytesBase64Raw && looksLikeBase64(bytesBase64Raw) ? bytesBase64Raw : undefined;
+  if (bytesBase64Raw && looksLikeBase64(bytesBase64Raw)) {
+    bytesBase64 = bytesBase64Raw;
+  }
 
+  const dataUrlRaw = firstString(obj, ["dataUrl", "data_url", "data", "content", "url"]);
+  if (dataUrlRaw) {
+    const parsed = maybeParseDataUrlToBase64(dataUrlRaw);
+    if (parsed) bytesBase64 = parsed;
+  }
+
+  if (isByteArray(obj.bytes)) {
+    const buf = Buffer.from(obj.bytes);
+    if (buf.byteLength > 0) bytesBase64 = buf.toString("base64");
+  }
+
+  // Text content may come from `contentText`/`text`/etc.
   const contentText =
-    firstString(obj, ["contentText", "content_text", "content", "text", "body", "string"]) ?? undefined;
+    firstString(obj, [
+      "contentText",
+      "content_text",
+      "contentTextValue",
+      "content_text_value",
+      "text",
+      "body",
+      "string",
+      "value",
+    ]) ?? undefined;
 
   if (!bytesBase64 && !contentText && !tempPath) return null;
 
@@ -149,7 +225,9 @@ function maybeArtifactFromObject(o: unknown): OpenClawAgentArtifactDescriptor | 
   };
 }
 
-function extractArtifactsFromUnknownPayload(payload: unknown): OpenClawAgentArtifactDescriptor[] {
+export function extractArtifactsFromUnknownPayload(
+  payload: unknown,
+): OpenClawAgentArtifactDescriptor[] {
   const out: OpenClawAgentArtifactDescriptor[] = [];
   const seen = new Set<string>();
 
@@ -565,6 +643,17 @@ export class OpenClawRoomBridge {
       if (p.state === "final") {
         const buf = this.deltaTextByRun.get(p.runId) ?? "";
         const finalText = textChunk || buf;
+
+        const artifacts = extractArtifactsFromUnknownPayload(p.message ?? p);
+        if (artifacts.length) {
+          this.emit({
+            type: "artifacts",
+            runId: p.runId,
+            createdByAgentId: this.agentId,
+            artifacts,
+          });
+        }
+
         this.deltaTextByRun.delete(p.runId);
         this.emit({
           type: "final",
@@ -577,6 +666,15 @@ export class OpenClawRoomBridge {
       if (p.state === "aborted") {
         const buf = this.deltaTextByRun.get(p.runId) ?? "";
         this.deltaTextByRun.delete(p.runId);
+        const artifacts = extractArtifactsFromUnknownPayload(p.message ?? p);
+        if (artifacts.length) {
+          this.emit({
+            type: "artifacts",
+            runId: p.runId,
+            createdByAgentId: this.agentId,
+            artifacts,
+          });
+        }
         this.emit({ type: "aborted", runId: p.runId, text: buf || textChunk || undefined });
         return;
       }
@@ -589,6 +687,35 @@ export class OpenClawRoomBridge {
           code: "CHAT_EVENT",
         });
         return;
+      }
+    }
+
+    // Non-legacy events: attempt best-effort artifact extraction from payloads
+    // that look like they might contain attachments/files.
+    if (!ev.event.startsWith("legacy.") && p && typeof p === "object") {
+      const o = p as Record<string, unknown>;
+      const looksLikeContainer =
+        "attachments" in o ||
+        "files" in o ||
+        "artifacts" in o ||
+        "generatedFiles" in o ||
+        "tempPath" in o ||
+        "temp_path" in o ||
+        "base64" in o ||
+        "bytes" in o ||
+        "content" in o;
+
+      if (looksLikeContainer) {
+        const artifacts = extractArtifactsFromUnknownPayload(p);
+        if (artifacts.length) {
+          const rid = typeof o.runId === "string" ? o.runId : undefined;
+          this.emit({
+            type: "artifacts",
+            runId: rid,
+            createdByAgentId: this.agentId,
+            artifacts,
+          });
+        }
       }
     }
 
