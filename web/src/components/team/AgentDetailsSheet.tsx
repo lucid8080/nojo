@@ -40,9 +40,12 @@ function isCanonicalAgentId(id: string) {
 export function TeamAgentAvatar({
   agent,
   size,
+  onClick,
 }: {
   agent: TeamAgent;
   size: "card" | "panel";
+  /** Opens agent details when provided (e.g. team cards). */
+  onClick?: () => void;
 }) {
   const [imgError, setImgError] = useState(false);
   const src = `/avatar/${encodeURIComponent(agent.avatarFile)}`;
@@ -53,8 +56,11 @@ export function TeamAgentAvatar({
     setImgError(false);
   }, [src]);
 
+  const buttonRing =
+    "rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2";
+
   if (imgError) {
-    return (
+    const fallback = (
       <div
         className={`flex shrink-0 items-center justify-center text-sm font-bold shadow-sm ring-2 ring-white dark:ring-slate-900 transition-transform duration-200 ease-out hover:scale-110 ${getAgentAvatarFallbackClassFromAgent(agent)} ${isPanel ? "size-14 text-lg rounded-2xl" : "size-11 text-xs rounded-xl"}`}
         aria-hidden
@@ -62,10 +68,23 @@ export function TeamAgentAvatar({
         {agent.initials}
       </div>
     );
+    if (onClick) {
+      return (
+        <button
+          type="button"
+          onClick={onClick}
+          className={`inline-flex shrink-0 cursor-pointer ${buttonRing} ${isPanel ? "rounded-2xl" : "rounded-xl"}`}
+          aria-label={`View details for ${agent.name}`}
+        >
+          {fallback}
+        </button>
+      );
+    }
+    return fallback;
   }
 
   const inner = isPanel ? "size-14 rounded-2xl" : "size-11 rounded-xl";
-  return (
+  const innerNode = (
     <span
       className={`inline-flex shrink-0 p-0.5 shadow-sm ring-2 ring-white dark:ring-slate-900 transition-transform duration-200 ease-out hover:scale-110 ${frame} ${isPanel ? "rounded-2xl" : "rounded-xl"}`}
     >
@@ -79,6 +98,21 @@ export function TeamAgentAvatar({
       />
     </span>
   );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`inline-flex shrink-0 cursor-pointer ${buttonRing}`}
+        aria-label={`View details for ${agent.name}`}
+      >
+        {innerNode}
+      </button>
+    );
+  }
+
+  return innerNode;
 }
 
 const fieldLabel =

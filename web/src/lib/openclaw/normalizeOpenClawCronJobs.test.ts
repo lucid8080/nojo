@@ -22,6 +22,12 @@ describe("extractJobsArray", () => {
 });
 
 describe("extractCronJobsArrayFromUnknown", () => {
+  it("parses JSON string bodies (e.g. gateway text/plain + JSON)", () => {
+    const inner = { jobs: [{ jobId: "a", name: "x" }] };
+    const str = JSON.stringify(inner);
+    expect(extractCronJobsArrayFromUnknown(str)).toEqual(inner.jobs);
+  });
+
   it("accepts { data: { jobs: [...] } }", () => {
     expect(
       extractCronJobsArrayFromUnknown({
@@ -40,6 +46,49 @@ describe("extractCronJobsArrayFromUnknown", () => {
 
   it("returns empty for unrecognized shapes", () => {
     expect(extractCronJobsArrayFromUnknown({ meta: true })).toEqual([]);
+  });
+
+  it("accepts { cronJobs: [...] }", () => {
+    expect(
+      extractCronJobsArrayFromUnknown({ cronJobs: [{ id: "cj" }] }),
+    ).toEqual([{ id: "cj" }]);
+  });
+
+  it("accepts { result: { jobs: [...] } }", () => {
+    expect(
+      extractCronJobsArrayFromUnknown({ result: { jobs: [{ id: "r" }] } }),
+    ).toEqual([{ id: "r" }]);
+  });
+
+  it("accepts { result: [...] }", () => {
+    expect(extractCronJobsArrayFromUnknown({ result: [{ id: "ra" }] })).toEqual([{ id: "ra" }]);
+  });
+
+  it("accepts { jobs: { jobId: job } } keyed map (gateway store shape)", () => {
+    const j = {
+      jobId: "j1",
+      name: "Test",
+      schedule: { kind: "at", at: "2026-01-01T00:00:00Z" },
+    };
+    expect(
+      extractCronJobsArrayFromUnknown({
+        jobs: { j1: j },
+      }),
+    ).toEqual([j]);
+  });
+
+  it("accepts { cron: { jobs: [...] } }", () => {
+    expect(
+      extractCronJobsArrayFromUnknown({ cron: { jobs: [{ id: "nested" }] } }),
+    ).toEqual([{ id: "nested" }]);
+  });
+
+  it("accepts { data: { result: { jobs: [...] } } }", () => {
+    expect(
+      extractCronJobsArrayFromUnknown({
+        data: { result: { jobs: [{ id: "deep" }] } },
+      }),
+    ).toEqual([{ id: "deep" }]);
   });
 });
 
@@ -84,5 +133,32 @@ describe("normalizeOpenClawJob", () => {
     );
     expect(j.id.length).toBeGreaterThan(8);
     expect(j.summary).toContain("Hi");
+  });
+
+  it("accepts schedule.every as alias for everyMs (interval)", () => {
+    const j = normalizeOpenClawJob(
+      {
+        name: "Tick",
+        schedule: { kind: "every", every: 86_400_000 },
+        payload: { kind: "systemEvent", text: "daily" },
+      },
+      { year: 2026, monthIndex: 0 },
+    );
+    expect(j.scheduleKind).toBe("interval");
+    expect(j.scheduleDisplay).toContain("86400000");
+    expect(j.occurrencesInMonth.length).toBeGreaterThan(0);
+  });
+});
+
+describe("cronOccurrencesInMonth (six-field)", () => {
+  it("parses a 6-field cron expression with seconds", () => {
+    const { occurrences, error } = cronOccurrencesInMonth(
+      "0 0 7 * * *",
+      undefined,
+      2026,
+      2,
+    );
+    expect(error).toBeNull();
+    expect(occurrences.length).toBeGreaterThanOrEqual(28);
   });
 });

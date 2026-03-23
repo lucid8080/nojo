@@ -2,8 +2,10 @@
 
 import { AgentDetailsSheet, TeamAgentAvatar } from "@/components/team/AgentDetailsSheet";
 import { CreateAgentSheet } from "@/components/team/CreateAgentSheet";
-import { CollaboratorStrip } from "@/components/dashboard/CollaboratorStrip";
-import type { collaboratorAgents } from "@/data/dashboardSampleData";
+import {
+  CollaboratorStrip,
+  type CollaboratorStripAgent,
+} from "@/components/dashboard/CollaboratorStrip";
 import type { TeamAgent, TeamAgentStatus, TeamStats } from "@/data/teamPageMock";
 import agencyData from "@/data/agencyAgents.json";
 import type { AgencyAgentsPayload } from "@/data/agencyAgents.types";
@@ -26,7 +28,17 @@ import { useHydratedTeamAgents } from "@/lib/nojo/useHydratedTeamAgents";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-type CollaboratorAgent = (typeof collaboratorAgents)[number];
+const STRIP_MAX = 7;
+
+function buildStripAgents(teamAgents: TeamAgent[]): CollaboratorStripAgent[] {
+  const slice = teamAgents.slice(0, STRIP_MAX).map((a) => ({
+    id: a.id,
+    initials: a.initials,
+    categoryLabel: a.categoryLabel,
+    avatarAccent: a.avatarAccent,
+  }));
+  return [...slice, { id: "add", initials: "+", isAdd: true as const }];
+}
 
 const statusStyles: Record<
   TeamAgentStatus,
@@ -200,12 +212,10 @@ function AgentCardActions({
 
 export function TeamPageView({
   baseRoster,
-  collaboratorAgents,
   autoScrollToCreateAgent,
   cmsSkillModels = [],
 }: {
   baseRoster: readonly NojoWorkspaceRosterEntry[];
-  collaboratorAgents: readonly CollaboratorAgent[];
   autoScrollToCreateAgent?: boolean;
   cmsSkillModels?: MarketplaceSkillCardModel[];
 }) {
@@ -222,6 +232,7 @@ export function TeamPageView({
     () => agents.find((a) => a.id === selectedId) ?? null,
     [agents, selectedId],
   );
+  const stripAgents = useMemo(() => buildStripAgents(agents), [agents]);
 
   const marketplaceSkillItems = useMemo(
     () =>
@@ -344,7 +355,10 @@ export function TeamPageView({
                 Browse Marketplace
               </Link>
             </div>
-            <CollaboratorStrip agents={collaboratorAgents} />
+            <CollaboratorStrip
+              agents={stripAgents}
+              onAgentClick={(id) => setSelectedId(id)}
+            />
           </div>
         </div>
 
@@ -439,7 +453,11 @@ export function TeamPageView({
                   className={`flex flex-col rounded-2xl border border-neutral-200/90 bg-white py-4 pl-3 pr-4 shadow-sm transition hover:shadow-md dark:border-slate-700/90 dark:bg-slate-900/70 dark:hover:border-slate-600 ${getCategoryCardClasses(agent.categoryLabel)}`}
                 >
                   <div className="flex items-start gap-3">
-                    <TeamAgentAvatar agent={agent} size="card" />
+                    <TeamAgentAvatar
+                      agent={agent}
+                      size="card"
+                      onClick={() => setSelectedId(agent.id)}
+                    />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <h3

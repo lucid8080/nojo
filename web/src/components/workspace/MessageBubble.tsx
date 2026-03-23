@@ -20,7 +20,7 @@ export function MessageBubble({
     return (
       <div className="flex justify-end">
         <div className="max-w-[85%] rounded-2xl rounded-br-md bg-sky-600 px-4 py-3 text-white shadow-sm dark:bg-sky-700">
-          <p className="whitespace-pre-wrap text-sm leading-relaxed">{body}</p>
+          <p className="break-words whitespace-pre-wrap text-sm leading-relaxed">{body}</p>
           <p className="mt-2 text-[10px] font-medium text-sky-100/90">{createdAt}</p>
         </div>
       </div>
@@ -49,7 +49,7 @@ export function MessageBubble({
               <TypingDots />
             </div>
           ) : (
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800 dark:text-neutral-200">
+            <p className="break-words whitespace-pre-wrap text-sm leading-relaxed text-slate-800 dark:text-neutral-200">
               {body}
             </p>
           )}

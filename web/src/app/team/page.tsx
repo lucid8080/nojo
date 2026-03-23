@@ -1,10 +1,7 @@
 import { TeamPageView } from "@/components/team/TeamPageView";
 import { TopNav } from "@/components/dashboard/TopNav";
 import { NOJO_WORKSPACE_AGENTS } from "@/data/nojoWorkspaceRoster";
-import {
-  collaboratorAgents,
-  headerNavItems,
-} from "@/data/dashboardSampleData";
+import { headerNavItems } from "@/data/dashboardSampleData";
 import { getPublishedCmsMarketplaceModels } from "@/lib/skillCard/publishedSkillCards";
 import type { Metadata } from "next";
 
@@ -34,7 +31,6 @@ export default async function TeamPage({ searchParams }: Props) {
       <main className="mx-auto w-full max-w-[120rem] px-4 pb-16 pt-6 sm:px-6 lg:px-8 lg:pb-20 lg:pt-8">
         <TeamPageView
           baseRoster={baseRoster}
-          collaboratorAgents={collaboratorAgents}
           autoScrollToCreateAgent={autoScrollToCreateAgent}
           cmsSkillModels={cmsSkillModels}
         />

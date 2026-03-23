@@ -2,6 +2,7 @@
 
 import type { TaskLogEntry } from "@/data/agentJobsMock";
 import { AvatarBubble } from "@/components/avatar/AvatarBubble";
+import { useOptionalAgentDetailsSheet } from "@/components/team/AgentDetailsSheetProvider";
 import { useHydrationSafeAgentAvatarUrl } from "@/lib/hooks/useHydrationSafeAgentAvatarUrl";
 import { useResolvedAgentAccent } from "@/lib/nojo/useResolvedAgentAccent";
 
@@ -134,6 +135,7 @@ function TaskAgentAvatar({
   /** Canonical roster id when known (drives accent with View details) */
   participantId?: string;
 }) {
+  const details = useOptionalAgentDetailsSheet();
   const visual = useResolvedAgentAccent(participantId?.trim() || undefined);
   const src = useHydrationSafeAgentAvatarUrl(avatarKey);
 
@@ -142,7 +144,9 @@ function TaskAgentAvatar({
   const avatarAccent =
     visual.kind === "palette" ? visual.avatarAccent : undefined;
 
-  return (
+  const pid = participantId?.trim();
+
+  const bubble = (
     <AvatarBubble
       label={displayName}
       accentKey={avatarKey}
@@ -154,4 +158,19 @@ function TaskAgentAvatar({
       avatarAccent={avatarAccent}
     />
   );
+
+  if (details && pid) {
+    return (
+      <button
+        type="button"
+        onClick={() => details.openAgentById(pid)}
+        className="relative inline-flex cursor-pointer rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-1"
+        aria-label={`View details for ${displayName.replace(/ Agent$/, "")}`}
+      >
+        {bubble}
+      </button>
+    );
+  }
+
+  return bubble;
 }

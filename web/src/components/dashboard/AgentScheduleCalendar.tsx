@@ -226,6 +226,7 @@ export function AgentScheduleCalendar() {
     "openclaw_gateway" | "disk_mirror" | null
   >(null);
   const [globalWarnings, setGlobalWarnings] = useState<string[]>([]);
+  const [cronProbe, setCronProbe] = useState<Record<string, unknown> | null>(null);
 
   const teamAgents = useHydratedTeamAgents(NOJO_WORKSPACE_AGENTS);
   const resolveAgentLabel = useCallback(
@@ -293,6 +294,28 @@ export function AgentScheduleCalendar() {
   useEffect(() => {
     void fetchJobs();
   }, [fetchJobs]);
+
+  useEffect(() => {
+    if (!diagnostics) {
+      setCronProbe(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/openclaw/cron-status", { cache: "no-store" });
+        const json = (await res.json()) as Record<string, unknown>;
+        if (!cancelled) setCronProbe(json);
+      } catch {
+        if (!cancelled) {
+          setCronProbe({ success: false, message: "Could not load /api/openclaw/cron-status" });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [diagnostics]);
 
   useEffect(() => {
     const n = new Date();
@@ -370,6 +393,79 @@ export function AgentScheduleCalendar() {
               <li key={w}>{w}</li>
             ))}
           </ul>
+        ) : null}
+
+        {diagnostics && cronProbe && cronProbe.success === true ? (
+          <div className="mb-3 rounded-lg border border-violet-200/80 bg-violet-50/90 px-3 py-2 text-[11px] text-violet-950 dark:border-violet-800/60 dark:bg-violet-950/30 dark:text-violet-100">
+            <p className="font-semibold text-violet-900 dark:text-violet-200">Cron probe (GET /api/openclaw/cron-status)</p>
+            <ul className="mt-1 list-inside list-disc space-y-0.5">
+              <li>
+                OPENCLAW_BASE_URL:{" "}
+                {cronProbe.openclawBaseUrlConfigured === true ? "set" : "missing"}
+              </li>
+              <li>
+                Disk fallback allowed: {cronProbe.diskFallbackAllowed === true ? "yes" : "no"}
+              </li>
+              {typeof cronProbe.gateway === "object" && cronProbe.gateway != null ? (
+                <>
+                  <li>
+                    Gateway reachable:{" "}
+                    {(cronProbe.gateway as { reachable?: boolean }).reachable === true
+                      ? "yes"
+                      : "no"}
+                    {(cronProbe.gateway as { extractedJobCount?: number }).extractedJobCount != null
+                      ? ` — ${String((cronProbe.gateway as { extractedJobCount: number }).extractedJobCount)} job(s) after JSON extraction`
+                      : ""}
+                  </li>
+                  {(cronProbe.gateway as { sourceDetail?: string }).sourceDetail ? (
+                    <li className="break-all">
+                      Endpoint:{" "}
+                      <code className="rounded bg-violet-100/90 px-1 text-[10px] dark:bg-violet-900/50">
+                        {(cronProbe.gateway as { sourceDetail: string }).sourceDetail}
+                      </code>
+                    </li>
+                  ) : null}
+                  {(cronProbe.gateway as { reason?: string }).reason ? (
+                    <li>{(cronProbe.gateway as { reason: string }).reason}</li>
+                  ) : null}
+                  {(cronProbe.gateway as { message?: string }).message ? (
+                    <li className="break-all">
+                      Error: {(cronProbe.gateway as { message: string }).message}
+                    </li>
+                  ) : null}
+                  {Array.isArray((cronProbe.gateway as { responseTopLevelKeys?: string[] }).responseTopLevelKeys) &&
+                  ((cronProbe.gateway as { responseTopLevelKeys: string[] }).responseTopLevelKeys as string[])
+                    .length > 0 ? (
+                    <li>
+                      Response keys:{" "}
+                      {(cronProbe.gateway as { responseTopLevelKeys: string[] }).responseTopLevelKeys.join(
+                        ", ",
+                      )}
+                    </li>
+                  ) : null}
+                </>
+              ) : null}
+              {typeof cronProbe.diskMirror === "object" && cronProbe.diskMirror != null ? (
+                <li className="break-all">
+                  Disk mirror:{" "}
+                  {(cronProbe.diskMirror as { readable?: boolean }).readable === true
+                    ? `${String((cronProbe.diskMirror as { extractedJobCount?: number }).extractedJobCount ?? 0)} job(s) at `
+                    : "unreadable — "}
+                  <code className="rounded bg-violet-100/90 px-1 text-[10px] dark:bg-violet-900/50">
+                    {(cronProbe.diskMirror as { path: string }).path}
+                  </code>
+                  {(cronProbe.diskMirror as { error?: string }).error ? (
+                    <span> ({(cronProbe.diskMirror as { error: string }).error})</span>
+                  ) : null}
+                </li>
+              ) : null}
+            </ul>
+          </div>
+        ) : null}
+        {diagnostics && cronProbe && cronProbe.success === false ? (
+          <p className="mb-3 rounded-lg border border-rose-200/80 bg-rose-50/90 px-3 py-2 text-[11px] text-rose-950 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-100">
+            Cron probe failed: {String(cronProbe.message ?? "unknown")}
+          </p>
         ) : null}
 
         {showOfflineNotice ? (

@@ -17,7 +17,7 @@ export function AgentLogCard({
 }) {
   return (
     <div
-      className={`rounded-2xl border-l-4 bg-white/90 p-4 shadow-sm dark:bg-slate-900/60 ${
+      className={`min-w-0 rounded-2xl border-l-4 bg-white/90 p-4 shadow-sm dark:bg-slate-900/60 ${
         success
           ? "border-l-violet-500 dark:border-l-violet-400"
           : "border-l-amber-500 dark:border-l-amber-400"
@@ -36,11 +36,11 @@ export function AgentLogCard({
           {createdAt}
         </span>
       </div>
-      <pre className="mb-2 overflow-x-auto rounded-xl bg-slate-950/5 p-3 font-mono text-[11px] leading-relaxed text-slate-700 dark:bg-black/30 dark:text-neutral-300">
+      <pre className="mb-2 max-w-full overflow-x-auto rounded-xl bg-slate-950/5 p-3 font-mono text-[11px] leading-relaxed text-slate-700 dark:bg-black/30 dark:text-neutral-300">
         {command}
       </pre>
       <p
-        className={`font-mono text-[11px] ${
+        className={`break-words font-mono text-[11px] ${
           success
             ? "text-emerald-700 dark:text-emerald-400"
             : "text-amber-800 dark:text-amber-300"

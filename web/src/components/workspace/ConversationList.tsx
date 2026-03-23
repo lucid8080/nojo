@@ -120,7 +120,7 @@ export function ConversationList({
           </button>
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-2">
+      <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
         {filtered.length === 0 ? (
           <p className="px-3 py-8 text-center text-sm text-slate-500 dark:text-neutral-400">
             No conversations match your search.
@@ -130,11 +130,11 @@ export function ConversationList({
             const items = sections[sectionKey];
             if (items.length === 0) return null;
             return (
-              <div key={sectionKey} className="mb-4">
-                <h3 className="mb-2 px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-neutral-500">
+              <div key={sectionKey} className="mb-3">
+                <h3 className="mb-1.5 px-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-neutral-500">
                   {SECTION_LABELS[sectionKey]}
                 </h3>
-                <ul className="space-y-1">
+                <ul className="space-y-0.5">
                   {items.map((c) => (
                     <li key={`${sectionKey}-${c.id}`}>
                       <ConversationListItem

@@ -244,14 +244,14 @@ export function JobBoard() {
             userScrolledRef.current = true;
             updateScrollButtons();
           }}
-          className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="flex snap-x snap-mandatory items-stretch gap-4 overflow-x-auto scroll-smooth pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {WORKSPACE_BOARD_CONVERSATION_IDS.map((id) => (
             <div
               key={id}
               data-job-card-slot
               data-job-id={id}
-              className="job-slot h-full w-[min(100%,22rem)] shrink-0 snap-start sm:w-[calc((100%-2rem)/3)] lg:min-h-[32rem]"
+              className="job-slot flex h-full min-h-0 w-[min(100%,22rem)] shrink-0 snap-start sm:w-[calc((100%-2rem)/3)]"
             >
               <JobCard
                 job={jobs[id]!}

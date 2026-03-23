@@ -82,7 +82,7 @@ function derivePriority(c: Conversation): JobPriority {
 }
 
 function derivePhase(ctx: JobContext | null): string {
-  if (!ctx?.subtasks?.length) return "Workspace thread";
+  if (!ctx?.subtasks?.length) return "—";
   const done = ctx.subtasks.filter((s) => s.done).length;
   const total = ctx.subtasks.length;
   return `${done}/${total} subtasks`;
@@ -93,7 +93,7 @@ function buildFooter(ctx: JobContext | null): JobFooter {
     return {
       eta: "—",
       tokensTools: "—",
-      phase: "Workspace thread",
+      phase: "—",
       completionPct: 0,
     };
   }
@@ -207,7 +207,7 @@ function messageToTask(
 function buildSubtitle(c: Conversation, ctx: JobContext | null): string {
   if (ctx?.description?.trim()) return truncate(ctx.description.trim(), 120);
   if (c.lastPreview?.trim()) return truncate(c.lastPreview.trim(), 120);
-  return "Workspace thread";
+  return "—";
 }
 
 /**

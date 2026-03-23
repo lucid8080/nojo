@@ -32,14 +32,21 @@ export function MessageFeed({
   bottomAnchorRef,
   showAgentTypingRow,
   typingAgentId,
+  onResolveApproval,
 }: {
   messages: WorkspaceMessage[];
   bottomAnchorRef?: RefObject<HTMLDivElement | null>;
   showAgentTypingRow?: boolean;
   typingAgentId?: string;
+  /** When set, approval cards can submit Approve / Request changes (workspace shell). */
+  onResolveApproval?: (
+    messageId: string,
+    decision: "approve" | "changes",
+    title: string,
+  ) => void | Promise<void>;
 }) {
   return (
-    <div className="space-y-4 px-3 py-4 sm:px-5">
+    <div className="min-w-0 space-y-4 px-3 py-4 sm:px-5">
       {messages.map((m) => {
         switch (m.type) {
           case "user":
@@ -138,6 +145,22 @@ export function MessageFeed({
                     description={m.description}
                     requester={agent}
                     createdAt={m.createdAt}
+                    status={m.status ?? "pending"}
+                    decidedAtLabel={m.decidedAtLabel}
+                    onApprove={
+                      (m.status ?? "pending") === "pending" && onResolveApproval
+                        ? () => {
+                            void onResolveApproval(m.id, "approve", m.title);
+                          }
+                        : undefined
+                    }
+                    onRequestChanges={
+                      (m.status ?? "pending") === "pending" && onResolveApproval
+                        ? () => {
+                            void onResolveApproval(m.id, "changes", m.title);
+                          }
+                        : undefined
+                    }
                   />
                 )}
               </ResolveAgent>

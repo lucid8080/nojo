@@ -19,22 +19,11 @@ function AssignedAgentChip({ id }: { id: string }) {
   );
 }
 
-function SubtaskAssigneeName({ assigneeId }: { assigneeId: string }) {
-  const merged = useWorkspaceAgent(assigneeId);
-  const a = merged ?? workspaceAgents.find((x) => x.id === assigneeId);
-  if (!a) return null;
-  return (
-    <p className="text-[10px] text-slate-400 dark:text-neutral-500">
-      {a.name}
-    </p>
-  );
-}
-
 export function JobContextPanel({ context }: { context: JobContext | null }) {
   if (!context) {
     return (
       <aside className="flex h-full items-center justify-center border-l border-neutral-200/80 bg-white/40 p-6 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/30 dark:text-neutral-400">
-        Select a job to see context, subtasks, and deliverables.
+        Select a job to see context.
       </aside>
     );
   }
@@ -114,42 +103,7 @@ export function JobContextPanel({ context }: { context: JobContext | null }) {
         </div>
       ) : null}
 
-      <div className="shrink-0 border-b border-neutral-200/80 p-4 dark:border-slate-800">
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-neutral-500">
-          Subtasks
-        </p>
-        <ul className="space-y-2">
-          {context.subtasks.map((s) => (
-              <li
-                key={s.id}
-                className="flex items-start gap-2 rounded-xl border border-neutral-200/60 bg-white/80 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/40"
-              >
-                <span
-                  className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md text-[10px] font-bold ${
-                    s.done
-                      ? "bg-emerald-500 text-white"
-                      : "border border-neutral-300 bg-neutral-100 text-transparent dark:border-slate-600 dark:bg-slate-700"
-                  }`}
-                  aria-hidden
-                >
-                  ✓
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p
-                    className={`text-sm ${s.done ? "text-slate-500 line-through dark:text-neutral-500" : "text-slate-900 dark:text-white"}`}
-                  >
-                    {s.title}
-                  </p>
-                  {s.assigneeAgentId ? (
-                    <SubtaskAssigneeName assigneeId={s.assigneeAgentId} />
-                  ) : null}
-                </div>
-              </li>
-            ))}
-        </ul>
-      </div>
-
-      <div className="shrink-0 border-b border-neutral-200/80 p-4 dark:border-slate-800">
+      <div className="shrink-0 border-b border-neutral-200/80 p-4 pb-8 dark:border-slate-800">
         <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-neutral-500">
           Activity
         </p>
@@ -174,39 +128,6 @@ export function JobContextPanel({ context }: { context: JobContext | null }) {
             </li>
           ))}
         </ul>
-      </div>
-
-      <div className="p-4 pb-8">
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-neutral-500">
-          Deliverables
-        </p>
-        {context.deliverables.length === 0 ? (
-          <p className="text-xs text-slate-500 dark:text-neutral-500">None yet</p>
-        ) : (
-          <ul className="space-y-2">
-            {context.deliverables.map((d) => (
-              <li
-                key={d.id}
-                className="flex items-center justify-between rounded-xl border border-neutral-200/60 px-3 py-2 text-xs dark:border-slate-700"
-              >
-                <span className="truncate font-medium text-slate-800 dark:text-neutral-200">
-                  {d.name}
-                </span>
-                <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                    d.status === "Approved"
-                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                      : d.status === "Ready"
-                        ? "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300"
-                        : "bg-neutral-100 text-neutral-700 dark:bg-slate-800 dark:text-neutral-400"
-                  }`}
-                >
-                  {d.status}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
       </div>
     </aside>
   );

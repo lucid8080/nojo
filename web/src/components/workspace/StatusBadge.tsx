@@ -11,10 +11,21 @@ const styles: Record<WorkspaceStatus, string> = {
     "bg-neutral-200/90 text-neutral-700 ring-neutral-300/80 dark:bg-slate-700 dark:text-neutral-200 dark:ring-slate-600",
 };
 
-export function StatusBadge({ status }: { status: WorkspaceStatus }) {
+export function StatusBadge({
+  status,
+  compact,
+}: {
+  status: WorkspaceStatus;
+  /** Denser padding and fixed small type (e.g. conversation list rows). */
+  compact?: boolean;
+}) {
   return (
     <span
-      className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ring-1 ring-inset sm:text-xs ${styles[status]}`}
+      className={`inline-flex shrink-0 items-center rounded-full font-semibold uppercase tracking-wide ring-1 ring-inset ${
+        compact
+          ? `px-1.5 py-px text-[10px] ${styles[status]}`
+          : `px-2 py-0.5 text-[10px] sm:text-xs ${styles[status]}`
+      }`}
     >
       {status}
     </span>

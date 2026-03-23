@@ -137,34 +137,3 @@ export const nextActionTiles = [
   { id: "n5", label: "Send notifications", emphasized: false },
   { id: "n6", label: "Collect feedback", emphasized: false },
 ] as const;
-
-export const suggestedAgentsRows = [
-  {
-    agent: "Recruiter Alpha",
-    status: "Active",
-    added: "Mar 12",
-    lastActive: "2m ago",
-    assignedTo: "Hiring Ops",
-  },
-  {
-    agent: "Matcher Pro",
-    status: "Queued",
-    added: "Mar 11",
-    lastActive: "1h ago",
-    assignedTo: "Team B",
-  },
-  {
-    agent: "Screening Lite",
-    status: "Paused",
-    added: "Mar 10",
-    lastActive: "1d ago",
-    assignedTo: "—",
-  },
-  {
-    agent: "Deploy Bot",
-    status: "Active",
-    added: "Mar 9",
-    lastActive: "5m ago",
-    assignedTo: "Platform",
-  },
-] as const;

@@ -29,7 +29,7 @@ export function DeliverableCard({
           {label}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="font-semibold text-slate-900 dark:text-white">{fileName}</p>
+          <p className="break-words font-semibold text-slate-900 dark:text-white">{fileName}</p>
           <p className="mt-0.5 text-xs text-emerald-800/80 dark:text-emerald-400/90">
             {version}
           </p>

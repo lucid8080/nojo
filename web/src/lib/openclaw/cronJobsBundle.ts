@@ -53,6 +53,43 @@ export async function getCronJobsBundle(year: number, monthIndex: number) {
     const gw = await listOpenClawCronJobsFromGateway();
     const jobsRaw = extractCronJobsArrayFromUnknown(gw.data);
     const jobs = normalizeOpenClawCronJobList(jobsRaw, { year, monthIndex });
+    const withOcc = jobs.filter((j) => j.occurrencesInMonth.length > 0).length;
+    // #region agent log
+    {
+      const d = gw.data;
+      const keys =
+        d != null && typeof d === "object" && !Array.isArray(d)
+          ? Object.keys(d as object).slice(0, 24)
+          : [];
+      let preview = "";
+      try {
+        preview = JSON.stringify(d).slice(0, 1800);
+      } catch {
+        preview = "(stringify failed)";
+      }
+      fetch("http://127.0.0.1:7818/ingest/7c1439b6-86e7-496a-b71e-0c1383a70c7d", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "b4897e" },
+        body: JSON.stringify({
+          sessionId: "b4897e",
+          location: "cronJobsBundle.ts:gatewayOk",
+          message: "cron bundle from gateway",
+          hypothesisId: "H2",
+          data: {
+            year,
+            monthIndex,
+            rawExtractedCount: jobsRaw.length,
+            normalizedCount: jobs.length,
+            jobsWithOccurrencesInMonth: withOcc,
+            gatewayDataType: d === null ? "null" : Array.isArray(d) ? "array" : typeof d,
+            gatewayTopKeys: keys,
+            gatewayJsonPreview: jobsRaw.length === 0 ? preview : "",
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+    }
+    // #endregion
 
     return sanitizeJsonForClient({
       success: true,
@@ -66,6 +103,25 @@ export async function getCronJobsBundle(year: number, monthIndex: number) {
     });
   } catch (gatewayErr) {
     const detail = formatGatewayError(gatewayErr);
+    // #region agent log
+    fetch("http://127.0.0.1:7818/ingest/7c1439b6-86e7-496a-b71e-0c1383a70c7d", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "b4897e" },
+      body: JSON.stringify({
+        sessionId: "b4897e",
+        location: "cronJobsBundle.ts:gatewayErr",
+        message: "gateway cron list failed",
+        hypothesisId: "H4",
+        data: {
+          year,
+          monthIndex,
+          detail: detail.slice(0, 200),
+          diskFallbackDisabled: isDiskFallbackDisabled(),
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
 
     if (isDiskFallbackDisabled()) {
       return sanitizeJsonForClient({
@@ -102,6 +158,27 @@ export async function getCronJobsBundle(year: number, monthIndex: number) {
 
     warnings.push(...disk.warnings);
     const jobs = normalizeOpenClawCronJobList(disk.jobsRaw, { year, monthIndex });
+    const withOccDisk = jobs.filter((j) => j.occurrencesInMonth.length > 0).length;
+    // #region agent log
+    fetch("http://127.0.0.1:7818/ingest/7c1439b6-86e7-496a-b71e-0c1383a70c7d", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "b4897e" },
+      body: JSON.stringify({
+        sessionId: "b4897e",
+        location: "cronJobsBundle.ts:diskFallback",
+        message: "cron bundle from disk mirror",
+        hypothesisId: "H4",
+        data: {
+          year,
+          monthIndex,
+          rawExtractedCount: disk.jobsRaw.length,
+          normalizedCount: jobs.length,
+          jobsWithOccurrencesInMonth: withOccDisk,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
 
     return sanitizeJsonForClient({
       success: true,

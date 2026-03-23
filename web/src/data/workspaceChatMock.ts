@@ -83,11 +83,19 @@ export type DeliverableMessage = MessageBase & {
   agentId?: string;
 };
 
+/** Lifecycle for interactive approval cards (defaults to pending when omitted). */
+export type ApprovalCardStatus = "pending" | "approved" | "changes_requested";
+
 export type ApprovalMessage = MessageBase & {
   type: "approval";
   title: string;
   description: string;
   requesterAgentId: string;
+  status?: ApprovalCardStatus;
+  /** OpenClaw run that produced this card (stream path). */
+  relatedRunId?: string;
+  /** Shown when status is approved or changes_requested. */
+  decidedAtLabel?: string;
 };
 
 export type WorkspaceMessage =

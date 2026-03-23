@@ -4,12 +4,14 @@ import {
   buildSyntheticJobContext,
   getJobContextForConversation,
   getMessagesForConversation,
+  type ApprovalCardStatus,
   type Conversation,
   type WorkspaceMessage,
   workspaceConversations,
 } from "@/data/workspaceChatMock";
 import { NOJO_WORKSPACE_AGENTS } from "@/data/nojoWorkspaceRoster";
 import { canonicalizeNojoAgentIdForClient } from "@/lib/nojo/agentIdentityMap";
+import { parseAssistantApprovalBlock } from "@/lib/nojo/parseAssistantApprovalBlock";
 import type { NovaContentQaPayload } from "@/lib/nojo/nojoScaffoldQaTypes";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -19,7 +21,6 @@ import { ConversationList } from "./ConversationList";
 import { CreateRoomDialog } from "./CreateRoomDialog";
 import { JobContextPanel } from "./JobContextPanel";
 import { MessageFeed } from "./MessageFeed";
-import { ThreadParticipantStrip } from "./ThreadParticipantStrip";
 import { RecentRunsList, type RecentRun } from "./RecentRunsList";
 
 type OpenClawSseEvent =
@@ -92,6 +93,10 @@ function WorkspaceShellInner() {
   const localMessagesByConversationIdRef = useRef(localMessagesByConversationId);
   const [openClawMessagesByConversationId, setOpenClawMessagesByConversationId] = useState<
     Record<string, WorkspaceMessage[]>
+  >({});
+  /** In-memory UI state for mock + stream approval cards (keyed by message id). */
+  const [approvalOverridesByConversationId, setApprovalOverridesByConversationId] = useState<
+    Record<string, Record<string, { status: ApprovalCardStatus; decidedAtLabel: string }>>
   >({});
   const [streamAssistant, setStreamAssistant] = useState<{
     conversationId: string;
@@ -281,7 +286,7 @@ function WorkspaceShellInner() {
 
     // Strictly order by the monotonic sequence. Fall back to array position
     // (stable for a given render) so we never get non-deterministic sorting.
-    return merged
+    const sorted = merged
       .map((m, idx) => ({
         m,
         seq: typeof m.sequence === "number" ? m.sequence : Number.MAX_SAFE_INTEGER,
@@ -289,12 +294,24 @@ function WorkspaceShellInner() {
       }))
       .sort((a, b) => a.seq - b.seq || a.idx - b.idx)
       .map((x) => x.m);
+
+    const overrides = selectedId
+      ? approvalOverridesByConversationId[selectedId] ?? {}
+      : {};
+
+    return sorted.map((m) => {
+      if (m.type !== "approval") return m;
+      const o = overrides[m.id];
+      if (!o) return m;
+      return { ...m, status: o.status, decidedAtLabel: o.decidedAtLabel };
+    });
   }, [
     selectedId,
     localMessagesByConversationId,
     openClawMessagesByConversationId,
     streamAssistant,
     conversation?.primaryAgentId,
+    approvalOverridesByConversationId,
   ]);
 
   useEffect(() => {
@@ -442,6 +459,62 @@ function WorkspaceShellInner() {
           seq = nextSequence();
           runSequenceByIdRef.current.set(rid, seq);
         }
+
+        const parsed = parseAssistantApprovalBlock(data.text);
+        runSequenceByIdRef.current.delete(rid);
+
+        if (parsed.approval) {
+          const toAppend: WorkspaceMessage[] = [];
+          if (parsed.cleanedText.trim()) {
+            toAppend.push({
+              id: `oc_final_${rid}`,
+              type: "agent",
+              createdAt: t,
+              agentId,
+              body: parsed.cleanedText,
+              agentStatus: "Completed",
+              sequence: seq,
+            });
+            const baseLen = getMessagesForConversation(cid)?.length ?? 0;
+            if (sequenceCounterRef.current < baseLen) {
+              sequenceCounterRef.current = baseLen;
+            }
+            if (sequenceCounterRef.current <= seq) {
+              sequenceCounterRef.current = seq + 1;
+            }
+            const apprSeq = sequenceCounterRef.current;
+            sequenceCounterRef.current += 1;
+            toAppend.push({
+              id: `oc_appr_${rid}`,
+              type: "approval",
+              createdAt: t,
+              title: parsed.approval.title,
+              description: parsed.approval.description,
+              requesterAgentId: agentId,
+              status: "pending",
+              relatedRunId: rid,
+              sequence: apprSeq,
+            });
+          } else {
+            toAppend.push({
+              id: `oc_appr_${rid}`,
+              type: "approval",
+              createdAt: t,
+              title: parsed.approval.title,
+              description: parsed.approval.description,
+              requesterAgentId: agentId,
+              status: "pending",
+              relatedRunId: rid,
+              sequence: seq,
+            });
+          }
+          setOpenClawMessagesByConversationId((prev) => ({
+            ...prev,
+            [cid]: [...(prev[cid] ?? []), ...toAppend],
+          }));
+          return;
+        }
+
         const agentMsg: WorkspaceMessage = {
           id: `oc_final_${rid}`,
           type: "agent",
@@ -451,7 +524,6 @@ function WorkspaceShellInner() {
           agentStatus: "Completed",
           sequence: seq,
         };
-        runSequenceByIdRef.current.delete(rid);
         setOpenClawMessagesByConversationId((prev) => ({
           ...prev,
           [cid]: [...(prev[cid] ?? []), agentMsg],
@@ -739,6 +811,58 @@ function WorkspaceShellInner() {
     [conversation, selectedId, localMessagesByConversationId],
   );
 
+  const handleResolveApproval = useCallback(
+    async (messageId: string, decision: "approve" | "changes", title: string) => {
+      if (!selectedId || !conversation) return;
+      const label = formatNowTime();
+
+      if (decision === "changes") {
+        const text =
+          typeof window !== "undefined"
+            ? window.prompt(`What changes do you want for "${title}"?`)
+            : null;
+        if (text == null || !text.trim()) return;
+        setApprovalOverridesByConversationId((prev) => ({
+          ...prev,
+          [selectedId]: {
+            ...(prev[selectedId] ?? {}),
+            [messageId]: {
+              status: "changes_requested",
+              decidedAtLabel: label,
+            },
+          },
+        }));
+        stickToBottomRef.current = true;
+        scrollBehaviorRef.current = "smooth";
+        try {
+          await handleSend(`Change request (${title}): ${text.trim()}`);
+        } catch {
+          // handleSend already surfaces errors
+        }
+        return;
+      }
+
+      setApprovalOverridesByConversationId((prev) => ({
+        ...prev,
+        [selectedId]: {
+          ...(prev[selectedId] ?? {}),
+          [messageId]: {
+            status: "approved",
+            decidedAtLabel: label,
+          },
+        },
+      }));
+      stickToBottomRef.current = true;
+      scrollBehaviorRef.current = "smooth";
+      try {
+        await handleSend(`Approved: ${title}`);
+      } catch {
+        // handleSend already surfaces errors
+      }
+    },
+    [conversation, selectedId, handleSend],
+  );
+
   useEffect(() => {
     if (!leftOpen && !rightOpen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -752,7 +876,7 @@ function WorkspaceShellInner() {
   }, [leftOpen, rightOpen]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
       {toast ? (
         <div
           className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full border border-neutral-200/80 bg-slate-900 px-4 py-2 text-sm text-white shadow-lg dark:bg-white dark:text-slate-900"
@@ -789,9 +913,9 @@ function WorkspaceShellInner() {
         </span>
       </div>
 
-      <div className="grid h-full min-h-0 flex-1 grid-cols-1 items-stretch lg:grid-cols-[280px_1fr_320px]">
+      <div className="grid h-full min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] items-stretch lg:grid-cols-[280px_1fr_320px] lg:grid-rows-[minmax(0,1fr)]">
         {/* Left: desktop */}
-        <div className="hidden h-full min-h-0 overflow-hidden rounded-2xl border border-neutral-200/80 bg-white/50 shadow-sm dark:border-slate-800 dark:bg-slate-900/30 lg:flex lg:flex-col">
+        <div className="hidden min-h-0 overflow-hidden rounded-2xl border border-neutral-200/80 bg-white/50 shadow-sm dark:border-slate-800 dark:bg-slate-900/30 lg:flex lg:h-full lg:flex-col">
           <div className="min-h-0 flex-1 overflow-hidden">
             <ConversationList
               conversations={mergedConversations}
@@ -813,14 +937,11 @@ function WorkspaceShellInner() {
         </div>
 
         {/* Center chat */}
-        <div className="flex h-full min-h-0 min-w-0 flex-col border-neutral-200/80 bg-white/40 dark:border-slate-800 dark:bg-slate-950/20 lg:border-x">
-          {conversation ? (
-            <ThreadParticipantStrip
-              agents={conversationForUi?.agents ?? conversation.agents}
-              primaryAgentId={conversation.primaryAgentId}
-            />
-          ) : null}
-          <div ref={chatScrollRef} className="min-h-0 flex-1 overflow-y-auto">
+        <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-neutral-200/80 bg-white/40 dark:border-slate-800 dark:bg-slate-950/20 lg:border-x">
+          <div
+            ref={chatScrollRef}
+            className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden"
+          >
             {conversation ? (
               <MessageFeed
                 messages={messages}
@@ -833,6 +954,7 @@ function WorkspaceShellInner() {
                   )
                 }
                 typingAgentId={conversation.primaryAgentId}
+                onResolveApproval={handleResolveApproval}
               />
             ) : (
               <p className="p-8 text-center text-sm text-slate-500 dark:text-neutral-400">
@@ -856,7 +978,7 @@ function WorkspaceShellInner() {
         </div>
 
         {/* Right: desktop */}
-        <div className="hidden h-full min-h-0 overflow-hidden rounded-2xl border border-neutral-200/80 bg-white/50 shadow-sm dark:border-slate-800 dark:bg-slate-900/30 lg:block">
+        <div className="hidden min-h-0 overflow-hidden rounded-2xl border border-neutral-200/80 bg-white/50 shadow-sm dark:border-slate-800 dark:bg-slate-900/30 lg:block lg:h-full">
           <JobContextPanel context={jobContext} />
         </div>
       </div>

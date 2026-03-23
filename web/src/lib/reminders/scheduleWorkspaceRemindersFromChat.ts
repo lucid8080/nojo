@@ -40,11 +40,43 @@ export async function scheduleWorkspaceRemindersFromChat(input: {
     confirmationBlock: null,
   };
 
-  if (!hasWorkspaceReminderIntent(input.prompt)) return empty;
+  if (!hasWorkspaceReminderIntent(input.prompt)) {
+    // #region agent log
+    fetch("http://127.0.0.1:7818/ingest/7c1439b6-86e7-496a-b71e-0c1383a70c7d", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "b4897e" },
+      body: JSON.stringify({
+        sessionId: "b4897e",
+        location: "scheduleWorkspaceRemindersFromChat.ts:noIntent",
+        message: "reminder path skipped",
+        hypothesisId: "H1",
+        data: { reason: "no_reminder_intent" },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+    return empty;
+  }
 
   const tz = getEffectiveReminderTimeZone(input.userTimeZone);
   const times = parseWorkspaceReminderTimes(input.prompt, tz);
-  if (times.length === 0) return empty;
+  if (times.length === 0) {
+    // #region agent log
+    fetch("http://127.0.0.1:7818/ingest/7c1439b6-86e7-496a-b71e-0c1383a70c7d", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "b4897e" },
+      body: JSON.stringify({
+        sessionId: "b4897e",
+        location: "scheduleWorkspaceRemindersFromChat.ts:noTimes",
+        message: "reminder intent but zero parsed times",
+        hypothesisId: "H1",
+        data: { tz },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+    return empty;
+  }
 
   const sessionKey = buildWorkspaceGatewaySessionKey({
     userId: input.userId,
@@ -97,7 +129,23 @@ export async function scheduleWorkspaceRemindersFromChat(input: {
     }
   }
 
-  if (scheduled.length === 0 && errors.length === 0) return empty;
+  if (scheduled.length === 0 && errors.length === 0) {
+    // #region agent log
+    fetch("http://127.0.0.1:7818/ingest/7c1439b6-86e7-496a-b71e-0c1383a70c7d", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "b4897e" },
+      body: JSON.stringify({
+        sessionId: "b4897e",
+        location: "scheduleWorkspaceRemindersFromChat.ts:emptyOutcome",
+        message: "parsed times but no scheduled rows and no errors",
+        hypothesisId: "H1",
+        data: { parsedTimeCount: times.length },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+    return empty;
+  }
 
   const confirmationBlock =
     scheduled.length > 0
@@ -117,6 +165,28 @@ export async function scheduleWorkspaceRemindersFromChat(input: {
       : errors.length > 0
         ? `NOJO_REMINDER_ERRORS: ${errors.join(" | ")}`
         : null;
+
+  // #region agent log
+  fetch("http://127.0.0.1:7818/ingest/7c1439b6-86e7-496a-b71e-0c1383a70c7d", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "b4897e" },
+    body: JSON.stringify({
+      sessionId: "b4897e",
+      location: "scheduleWorkspaceRemindersFromChat.ts:done",
+      message: "reminder scheduling outcome",
+      hypothesisId: "H1",
+      data: {
+        scheduledCount: scheduled.length,
+        errorCount: errors.length,
+        jobIdPrefixes: scheduled.map((s) =>
+          s.jobId ? String(s.jobId).slice(0, 8) : null,
+        ),
+        atIsoSample: scheduled[0]?.atIso ?? null,
+      },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
 
   return { scheduled, errors, confirmationBlock };
 }

@@ -60,8 +60,14 @@ function buildScheduleDisplay(schedule: unknown): string {
     const tz = typeof s.tz === "string" && s.tz.trim() ? ` (${s.tz})` : "";
     return `${expr}${tz}`;
   }
-  if (s.kind === "every" && typeof s.everyMs === "number" && Number.isFinite(s.everyMs)) {
-    return `every ${s.everyMs} ms`;
+  if (s.kind === "every") {
+    const ms =
+      typeof s.everyMs === "number" && Number.isFinite(s.everyMs)
+        ? s.everyMs
+        : typeof s.every === "number" && Number.isFinite(s.every)
+          ? s.every
+          : null;
+    if (ms != null) return `every ${ms} ms`;
   }
   return JSON.stringify(schedule);
 }
@@ -188,6 +194,29 @@ export function normalizeOpenClawJob(
       const { start, end } = monthBoundsUtc(ctx.year, ctx.monthIndex);
       if (d.getTime() >= start.getTime() && d.getTime() <= end.getTime()) {
         occurrencesInMonth = [d.toISOString()];
+      } else {
+        // #region agent log
+        fetch("http://127.0.0.1:7818/ingest/7c1439b6-86e7-496a-b71e-0c1383a70c7d", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "b4897e" },
+          body: JSON.stringify({
+            sessionId: "b4897e",
+            location: "normalizeOpenClawJob.ts:atOutsideMonth",
+            message: "at job not placed on calendar month",
+            hypothesisId: "H3",
+            data: {
+              jobId: id.slice(0, 12),
+              scheduleAt: schedule.at,
+              viewYear: ctx.year,
+              viewMonthIndex: ctx.monthIndex,
+              runInstantMs: d.getTime(),
+              monthStartMs: start.getTime(),
+              monthEndMs: end.getTime(),
+            },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {});
+        // #endregion
       }
     }
   } else if (schedule?.kind === "cron" && typeof schedule.expr === "string") {
@@ -216,14 +245,24 @@ export function normalizeOpenClawJob(
         nextRunAt = null;
       }
     }
-  } else if (schedule?.kind === "every" && typeof schedule.everyMs === "number") {
-    const all = everyOccurrencesInMonth(schedule.everyMs, ctx.year, ctx.monthIndex);
-    occurrencesInMonth = all.slice(0, 32);
-    if (all.length > 32) {
-      warnings.push(`Interval "${name}": showing first 32 ticks in month (dense schedule).`);
-    }
-    if (occurrencesInMonth.length > 0) {
-      nextRunAt = occurrencesInMonth[0]!;
+  } else if (schedule?.kind === "every") {
+    const everyMs =
+      typeof schedule.everyMs === "number" && Number.isFinite(schedule.everyMs)
+        ? schedule.everyMs
+        : typeof schedule.every === "number" && Number.isFinite(schedule.every)
+          ? schedule.every
+          : NaN;
+    if (!Number.isFinite(everyMs) || everyMs <= 0) {
+      warnings.push(`Interval "${name}": missing or invalid everyMs/every.`);
+    } else {
+      const all = everyOccurrencesInMonth(everyMs, ctx.year, ctx.monthIndex);
+      occurrencesInMonth = all.slice(0, 32);
+      if (all.length > 32) {
+        warnings.push(`Interval "${name}": showing first 32 ticks in month (dense schedule).`);
+      }
+      if (occurrencesInMonth.length > 0) {
+        nextRunAt = occurrencesInMonth[0]!;
+      }
     }
   }
 
@@ -248,19 +287,72 @@ export function normalizeOpenClawJob(
 }
 
 /**
+ * OpenClaw gateway may return `jobs` as a keyed map (`{ [jobId]: job }`) instead of an array.
+ */
+function coalesceJobsLikeMap(value: unknown): unknown[] | null {
+  if (value == null || typeof value !== "object" || Array.isArray(value)) return null;
+  const vals = Object.values(value as Record<string, unknown>);
+  if (vals.length === 0) return [];
+  const allPlainObjects = vals.every(
+    (x) => x != null && typeof x === "object" && !Array.isArray(x),
+  );
+  if (!allPlainObjects) return null;
+  return vals;
+}
+
+function arrayFromRecord(r: Record<string, unknown>): unknown[] | null {
+  if (Array.isArray(r.jobs)) return r.jobs;
+  if (r.jobs != null && typeof r.jobs === "object" && !Array.isArray(r.jobs)) {
+    const coerced = coalesceJobsLikeMap(r.jobs);
+    if (coerced) return coerced;
+  }
+  if (Array.isArray(r.items)) return r.items;
+  if (r.items != null && typeof r.items === "object" && !Array.isArray(r.items)) {
+    const coerced = coalesceJobsLikeMap(r.items);
+    if (coerced) return coerced;
+  }
+  if (Array.isArray(r.cronJobs)) return r.cronJobs;
+  if (Array.isArray(r.schedules)) return r.schedules;
+  if (Array.isArray(r.result)) return r.result;
+  if (r.result != null && typeof r.result === "object") {
+    return arrayFromRecord(r.result as Record<string, unknown>);
+  }
+  return null;
+}
+
+/**
  * Defensive extraction for gateway or disk JSON: bare array, `{ jobs }`, nested `{ data: { jobs } }`, etc.
  */
 export function extractCronJobsArrayFromUnknown(data: unknown): unknown[] {
+  if (typeof data === "string") {
+    const t = data.trim();
+    if (t.length > 0 && (t.startsWith("{") || t.startsWith("["))) {
+      try {
+        return extractCronJobsArrayFromUnknown(JSON.parse(t) as unknown);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }
   if (Array.isArray(data)) return data;
   if (!data || typeof data !== "object") return [];
   const o = data as Record<string, unknown>;
-  if (Array.isArray(o.jobs)) return o.jobs;
-  if (Array.isArray(o.items)) return o.items;
+  const top = arrayFromRecord(o);
+  if (top) return top;
+  if (o.store != null && typeof o.store === "object") {
+    const fromStore = arrayFromRecord(o.store as Record<string, unknown>);
+    if (fromStore) return fromStore;
+  }
+  if (o.cron != null && typeof o.cron === "object") {
+    const nested = arrayFromRecord(o.cron as Record<string, unknown>);
+    if (nested) return nested;
+  }
   if (Array.isArray(o.data)) return o.data as unknown[];
   if (o.data != null && typeof o.data === "object") {
     const d = o.data as Record<string, unknown>;
-    if (Array.isArray(d.jobs)) return d.jobs;
-    if (Array.isArray(d.items)) return d.items;
+    const fromData = arrayFromRecord(d);
+    if (fromData) return fromData;
   }
   return [];
 }

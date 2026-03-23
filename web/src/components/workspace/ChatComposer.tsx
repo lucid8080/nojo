@@ -31,8 +31,8 @@ export function ChatComposer({
   }
 
   return (
-    <div className="shrink-0 border-t border-neutral-200/80 bg-white/95 p-3 shadow-[0_-4px_24px_-8px_rgba(0,0,0,0.08)] dark:border-slate-800 dark:bg-slate-950/95 dark:shadow-black/20 sm:p-4">
-      <div className="relative mb-2 flex flex-wrap gap-2">
+    <div className="w-full min-w-0 shrink-0 border-t border-neutral-200/80 bg-white/95 p-3 shadow-[0_-4px_24px_-8px_rgba(0,0,0,0.08)] dark:border-slate-800 dark:bg-slate-950/95 dark:shadow-black/20 sm:p-4">
+      <div className="relative mb-2 flex min-w-0 flex-wrap gap-2">
         <button
           type="button"
           onClick={() => setMentionOpen((o) => !o)}
@@ -86,13 +86,13 @@ export function ChatComposer({
           Summarize progress
         </button>
       </div>
-      <div className="flex gap-2 rounded-2xl border border-neutral-200/90 bg-neutral-50/50 p-2 dark:border-slate-700 dark:bg-slate-900/50">
+      <div className="flex min-w-0 gap-2 rounded-2xl border border-neutral-200/90 bg-neutral-50/50 p-2 dark:border-slate-700 dark:bg-slate-900/50">
         <textarea
           rows={2}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder={placeholder}
-          className="min-h-[52px] flex-1 resize-none bg-transparent px-2 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none dark:text-white dark:placeholder:text-neutral-500"
+          className="min-h-[52px] min-w-0 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none dark:text-white dark:placeholder:text-neutral-500"
           aria-label="Message input"
         />
         <button
