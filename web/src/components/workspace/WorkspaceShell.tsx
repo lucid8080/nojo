@@ -12,6 +12,7 @@ import {
 import { NOJO_WORKSPACE_AGENTS } from "@/data/nojoWorkspaceRoster";
 import { canonicalizeNojoAgentIdForClient } from "@/lib/nojo/agentIdentityMap";
 import { parseAssistantApprovalBlock } from "@/lib/nojo/parseAssistantApprovalBlock";
+import { applyAgentFileClaimGuard } from "@/lib/openclaw/agentFileClaimGuard";
 import type { NovaContentQaPayload } from "@/lib/nojo/nojoScaffoldQaTypes";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -66,6 +67,7 @@ type OpenClawSseEvent =
   | { type: "error"; message: string; code?: string; runId?: string };
 
 type ArtifactPersistedSseEvent = {
+  runId?: string;
   fileId: string;
   projectId: string;
   filename: string;
@@ -127,6 +129,11 @@ function WorkspaceShellInner() {
 
   const sequenceCounterRef = useRef<number>(0);
   const runSequenceByIdRef = useRef<Map<string, number>>(new Map());
+  const persistedArtifactsByRunIdRef = useRef<Map<string, string[]>>(new Map());
+  const fallbackTimeoutByRunIdRef = useRef<
+    Map<string, ReturnType<typeof setTimeout>>
+  >(new Map());
+  const DURABLE_FILE_CLAIM_FALLBACK_MS = 2500;
 
   const fetchRecentRuns = useCallback(async () => {
     try {
@@ -329,6 +336,9 @@ function WorkspaceShellInner() {
     setStreamAssistant(null);
     setAssistantPendingAfterSend(false);
     runSequenceByIdRef.current.clear();
+    persistedArtifactsByRunIdRef.current.clear();
+    for (const [, handle] of fallbackTimeoutByRunIdRef.current) clearTimeout(handle);
+    fallbackTimeoutByRunIdRef.current.clear();
     stickToBottomRef.current = true;
     scrollBehaviorRef.current = "auto";
   }, [selectedId]);
@@ -471,10 +481,51 @@ function WorkspaceShellInner() {
           runSequenceByIdRef.current.set(rid, seq);
         }
 
+        const persistedArtifactsForRunId =
+          persistedArtifactsByRunIdRef.current.get(rid) ?? [];
+
+        const guardResult = applyAgentFileClaimGuard({
+          text: data.text,
+          persistedArtifactsForRunId,
+        });
+
+        if (guardResult.shouldShowFallbackBecauseNoDurablePersistence) {
+          const existing = fallbackTimeoutByRunIdRef.current.get(rid);
+          if (existing) clearTimeout(existing);
+
+          const handle = setTimeout(() => {
+            const stillNoPersisted =
+              (persistedArtifactsByRunIdRef.current.get(rid) ?? []).length === 0;
+            if (!stillNoPersisted) return;
+
+            const sys: WorkspaceMessage = {
+              id: `oc_fallback_${rid}`,
+              type: "system",
+              createdAt: formatNowTime(),
+              body: "File save wasn't confirmed in Project Files.",
+              sequence: nextSequence(),
+            };
+
+            setOpenClawMessagesByConversationId((prev) => ({
+              ...prev,
+              [cid]: [...(prev[cid] ?? []), sys],
+            }));
+
+            fallbackTimeoutByRunIdRef.current.delete(rid);
+          }, DURABLE_FILE_CLAIM_FALLBACK_MS);
+
+          fallbackTimeoutByRunIdRef.current.set(rid, handle);
+        }
+
         const parsed = parseAssistantApprovalBlock(data.text);
         runSequenceByIdRef.current.delete(rid);
 
         if (parsed.approval) {
+          const cleanedGuard = applyAgentFileClaimGuard({
+            text: parsed.cleanedText ?? "",
+            persistedArtifactsForRunId,
+          });
+
           const toAppend: WorkspaceMessage[] = [];
           if (parsed.cleanedText.trim()) {
             toAppend.push({
@@ -482,7 +533,7 @@ function WorkspaceShellInner() {
               type: "agent",
               createdAt: t,
               agentId,
-              body: parsed.cleanedText,
+              body: cleanedGuard.sanitizedText,
               agentStatus: "Completed",
               sequence: seq,
             });
@@ -531,7 +582,7 @@ function WorkspaceShellInner() {
           type: "agent",
           createdAt: t,
           agentId,
-          body: data.text,
+          body: guardResult.sanitizedText,
           agentStatus: "Completed",
           sequence: seq,
         };
@@ -636,6 +687,22 @@ function WorkspaceShellInner() {
       }
 
       const cid = conversation.id;
+
+    const rid = typeof data.runId === "string" && data.runId.length > 0 ? data.runId : null;
+    if (rid) {
+      const prevFilenames = persistedArtifactsByRunIdRef.current.get(rid) ?? [];
+      const nextFilenames = prevFilenames.includes(data.filename)
+        ? prevFilenames
+        : [...prevFilenames, data.filename];
+      persistedArtifactsByRunIdRef.current.set(rid, nextFilenames);
+
+      const existing = fallbackTimeoutByRunIdRef.current.get(rid);
+      if (existing) {
+        clearTimeout(existing);
+        fallbackTimeoutByRunIdRef.current.delete(rid);
+      }
+    }
+
       const sys: WorkspaceMessage = {
         id: uid(),
         type: "system",

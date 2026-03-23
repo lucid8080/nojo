@@ -205,6 +205,7 @@ export async function GET(req: NextRequest) {
             controller.enqueue(
               encoder.encode(
                 sseLine("artifact_persisted", {
+                  runId: ev.runId,
                   fileId: result.file.id,
                   projectId: result.file.projectId,
                   filename: result.file.filename,
