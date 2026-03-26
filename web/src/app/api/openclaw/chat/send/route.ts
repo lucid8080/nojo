@@ -12,6 +12,7 @@ import { canonicalizeAgentId } from "@/lib/nojo/agentIdCanonicalization";
 import { isUserCreatedWorkspaceAgentId } from "@/lib/workspace/userWorkspaceAgentServer";
 import { scheduleWorkspaceRemindersFromChat } from "@/lib/reminders/scheduleWorkspaceRemindersFromChat";
 import { getUserTimeZoneFromDb } from "@/lib/reminders/userTimeZoneDb";
+import { getCronJobsBundle } from "@/lib/openclaw/cronJobsBundle";
 
 export const runtime = "nodejs";
 
@@ -120,6 +121,52 @@ export async function POST(req: NextRequest) {
     let promptToSend = composed.isNojoAgent ? composed.composedPrompt : prompt;
 
     const userTimeZone = await getUserTimeZoneFromDb(userId);
+
+    const lowerPrompt = prompt.toLowerCase();
+    const wantsSchedule = /schedule|calendar|upcoming|reminders?/i.test(lowerPrompt);
+
+    if (wantsSchedule) {
+      try {
+        const now = new Date();
+        const bundle: any = await getCronJobsBundle(now.getFullYear(), now.getMonth());
+        
+        if (bundle?.success && Array.isArray(bundle?.jobs)) {
+          const upcoming = bundle.jobs.filter((j: any) => {
+            if (!j.nextRunAt) return false;
+            if (j.ownership && j.ownership.createdByUserId !== userId) return false;
+            const runTime = new Date(j.nextRunAt).getTime();
+            return runTime >= now.getTime() - 86400000;
+          });
+          
+          upcoming.sort((a: any, b: any) => new Date(a.nextRunAt!).getTime() - new Date(b.nextRunAt!).getTime());
+          const limited = upcoming.slice(0, 20);
+          
+          if (limited.length > 0) {
+            const tz = userTimeZone || "UTC";
+            const scheduleBlock = [
+              "NOJO_USER_SCHEDULE_CONTEXT (read-only reference):",
+              `The user asked about their schedule or reminders. Here are their upcoming scheduled jobs (Current TimeZone: ${tz}):`,
+              ...limited.map((j: any) => {
+                const dateRaw = j.nextRunAt!;
+                let formatted = dateRaw;
+                try {
+                  formatted = new Date(dateRaw).toLocaleString("en-US", { timeZone: tz });
+                } catch { /* ignore */ }
+                return `- [${formatted}] ${j.name} (Job ID: ${j.id}) - Schedule: ${j.scheduleDisplay}`;
+              }),
+              "(Use this context to accurately answer the user's question about their existing schedule and reminder times.)"
+            ].join("\n");
+            promptToSend = `${promptToSend}\n\n${scheduleBlock}`;
+          } else {
+            const scheduleBlock = "NOJO_USER_SCHEDULE_CONTEXT: The user has no upcoming scheduled jobs or reminders in the current month.";
+            promptToSend = `${promptToSend}\n\n${scheduleBlock}`;
+          }
+        }
+      } catch (err) {
+        console.error("[openclaw-qa][send.schedule_inject_error]", err);
+      }
+    }
+
     let reminderOutcome: Awaited<ReturnType<typeof scheduleWorkspaceRemindersFromChat>>;
     try {
       reminderOutcome = await scheduleWorkspaceRemindersFromChat({

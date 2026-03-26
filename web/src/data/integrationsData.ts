@@ -51,6 +51,16 @@ export const integrationCategories: IntegrationCategory[] = [
     ],
   },
   {
+    id: "apps",
+    name: "Apps",
+    integrations: [
+      { id: "linear", name: "Linear", description: "Project and issue tracking" },
+      { id: "github", name: "GitHub", description: "Code hosting and collaboration" },
+      { id: "jira", name: "Jira", description: "Software development tool" },
+      { id: "asana", name: "Asana", description: "Work management platform" },
+    ],
+  },
+  {
     id: "music",
     name: "Music & Audio",
     integrations: [
