@@ -1,0 +1,7 @@
+﻿src/app/api/projects/[projectId]/files/route.ts(83,25): error TS2304: Cannot find name 'prisma'.
+src/app/api/projects/[projectId]/files/route.ts(99,31): error TS7006: Parameter 'f' implicitly has an 'any' type.
+src/components/dashboard/AgentScheduleCalendar.tsx(92,5): error TS1117: An object literal cannot have multiple properties with the same name.
+src/components/dashboard/AgentScheduleCalendar.tsx(95,5): error TS1117: An object literal cannot have multiple properties with the same name.
+src/lib/diagram/excalidraw/storage.ts(92,7): error TS2322: Type 'ExcalidrawArtifactFile[]' is not assignable to type 'JsonNull | InputJsonValue | undefined'.
+  Type 'ExcalidrawArtifactFile[]' is not assignable to type 'InputJsonObject'.
+    Index signature for type 'string' is missing in type 'ExcalidrawArtifactFile[]'.

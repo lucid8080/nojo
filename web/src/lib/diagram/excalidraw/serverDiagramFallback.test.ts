@@ -31,7 +31,8 @@ describe("createServerDiagramFallbackArtifact", () => {
     expect(arg.workspaceId).toBe("ws-1");
     expect(arg.agentId).toBe("nojo-main");
     expect(arg.prompt).toBe("Draw a flowchart of user login");
-    expect(arg.title.length).toBeGreaterThan(0);
+    expect(arg.title).toBe("User Login");
+    expect(arg.filenameStem).toBe("user-login");
     expect(arg.excalidrawJsonStr).toContain('"type"');
     expect(arg.svgStr).toContain("<svg");
   });

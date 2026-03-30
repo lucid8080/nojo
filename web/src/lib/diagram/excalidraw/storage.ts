@@ -1,13 +1,17 @@
 import { prisma } from "@/lib/db";
 import type { ExcalidrawArtifactFile } from "./types";
 import { persistAgentArtifact } from "@/lib/files/persistAgentArtifact";
+import { slugifyDiagramStem } from "@/lib/nojo/diagramNaming";
 
 export type CreateDiagramArtifactParams = {
   userId: string;
   workspaceId: string;
   agentId?: string;
   messageId?: string;
+  /** Human-readable title for Artifact row and UI */
   title: string;
+  /** Optional ASCII slug for filenames; defaults to slugified `title` */
+  filenameStem?: string;
   prompt: string;
   excalidrawJsonStr: string;
   svgStr: string;
@@ -15,7 +19,20 @@ export type CreateDiagramArtifactParams = {
 };
 
 export async function createDiagramArtifact(params: CreateDiagramArtifactParams) {
-  const { userId, workspaceId, agentId, messageId, title, prompt, excalidrawJsonStr, svgStr, pngBuffer } = params;
+  const {
+    userId,
+    workspaceId,
+    agentId,
+    messageId,
+    title,
+    filenameStem: filenameStemParam,
+    prompt,
+    excalidrawJsonStr,
+    svgStr,
+    pngBuffer,
+  } = params;
+
+  const fileBase = filenameStemParam?.trim() || slugifyDiagramStem(title);
 
   const files: ExcalidrawArtifactFile[] = [];
 
@@ -23,7 +40,7 @@ export async function createDiagramArtifact(params: CreateDiagramArtifactParams)
   const sourceResult = await persistAgentArtifact({
     userId,
     projectId: workspaceId,
-    filename: `${title}.excalidraw`,
+    filename: `${fileBase}.excalidraw`,
     bytes: Buffer.from(excalidrawJsonStr, "utf8"),
     createdByType: "agent",
     createdByAgentId: agentId,
@@ -41,7 +58,7 @@ export async function createDiagramArtifact(params: CreateDiagramArtifactParams)
   const svgResult = await persistAgentArtifact({
     userId,
     projectId: workspaceId,
-    filename: `${title}.svg`,
+    filename: `${fileBase}.svg`,
     bytes: Buffer.from(svgStr, "utf8"),
     createdByType: "agent",
     createdByAgentId: agentId,
@@ -60,7 +77,7 @@ export async function createDiagramArtifact(params: CreateDiagramArtifactParams)
     const pngResult = await persistAgentArtifact({
       userId,
       projectId: workspaceId,
-      filename: `${title}.png`,
+      filename: `${fileBase}.png`,
       bytes: pngBuffer,
       createdByType: "agent",
       createdByAgentId: agentId,

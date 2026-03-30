@@ -1,0 +1,19 @@
+﻿src/app/api/openclaw/chat/stream/route.ts(2,34): error TS2307: Cannot find module '@/lib/auth-server' or its corresponding type declarations.
+src/app/api/openclaw/chat/stream/route.ts(3,24): error TS2307: Cannot find module '@/lib/db' or its corresponding type declarations.
+src/app/api/openclaw/chat/stream/route.ts(4,69): error TS2307: Cannot find module '@/lib/openclaw/openclaw-chat-bridge' or its corresponding type declarations.
+src/app/api/openclaw/chat/stream/route.ts(5,38): error TS2307: Cannot find module '@/lib/files/persistAgentArtifact' or its corresponding type declarations.
+src/app/api/openclaw/chat/stream/route.ts(9,8): error TS2307: Cannot find module '@/lib/nojo/ensureNojoAgentIdentityScaffold' or its corresponding type declarations.
+src/app/api/openclaw/chat/stream/route.ts(10,58): error TS2307: Cannot find module '@/lib/nojo/ensureUserWorkspaceAgentIdentityScaffold' or its corresponding type declarations.
+src/app/api/openclaw/chat/stream/route.ts(11,37): error TS2307: Cannot find module '@/lib/nojo/agentIdCanonicalization' or its corresponding type declarations.
+src/app/api/openclaw/chat/stream/route.ts(12,47): error TS2307: Cannot find module '@/lib/workspace/userWorkspaceAgentServer' or its corresponding type declarations.
+src/app/api/openclaw/chat/stream/route.ts(13,39): error TS2307: Cannot find module '@/lib/diagram/excalidraw/storage' or its corresponding type declarations.
+src/app/api/openclaw/chat/stream/route.ts(14,39): error TS2307: Cannot find module '@/lib/diagram/excalidraw/render' or its corresponding type declarations.
+src/lib/diagram/excalidraw/storage.ts(1,24): error TS2307: Cannot find module '@/lib/db' or its corresponding type declarations.
+src/lib/diagram/excalidraw/storage.ts(3,38): error TS2307: Cannot find module '@/lib/files/persistAgentArtifact' or its corresponding type declarations.
+src/lib/openclaw/gateway-url.ts(16,39): error TS1501: This regular expression flag is only available when targeting 'es6' or later.
+src/lib/openclaw/gateway-ws-client.ts(188,25): error TS2802: Type 'Map<string, Pending>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/lib/openclaw/openclaw-chat-bridge.ts(5,62): error TS2307: Cannot find module '@/lib/nojo/extractUserVisibleChatMessage' or its corresponding type declarations.
+src/lib/openclaw/openclaw-chat-bridge.ts(761,21): error TS2802: Type 'Set<(ev: OpenClawChatBridgeEvent) => void>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/lib/openclaw/openclaw-device-identity.ts(58,6): error TS2550: Property 'replaceAll' does not exist on type 'string'. Do you need to change your target library? Try changing the 'lib' compiler option to 'es2021' or later.
+src/lib/openclaw/openclaw-device-identity.ts(60,19): error TS1501: This regular expression flag is only available when targeting 'es6' or later.
+src/lib/openclaw/openclaw-device-identity.ts(64,28): error TS2550: Property 'replaceAll' does not exist on type 'string'. Do you need to change your target library? Try changing the 'lib' compiler option to 'es2021' or later.

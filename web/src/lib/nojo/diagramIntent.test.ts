@@ -24,8 +24,11 @@ describe("userWantsDiagram", () => {
 });
 
 describe("diagramArtifactTitleFromPrompt", () => {
-  it("slugifies words from the prompt", () => {
-    expect(diagramArtifactTitleFromPrompt("Draw a diagram of user login")).toMatch(/login/);
+  it("derives topic slug after for/about/of and from the subject", () => {
+    expect(diagramArtifactTitleFromPrompt("Draw a diagram of user login")).toMatch(/user-login/);
+    expect(
+      diagramArtifactTitleFromPrompt("hi can you make the diagram for job searching"),
+    ).toBe("job-searching");
     expect(diagramArtifactTitleFromPrompt("!!!")).toBe("diagram");
   });
 });
@@ -35,7 +38,7 @@ describe("shouldOfferServerDiagramFallback", () => {
     expect(
       shouldOfferServerDiagramFallback({
         userPrompt: "make a flowchart",
-        excalidrawPersistedForRun: false,
+        agentDiagramPersistedForRun: false,
         fallbackAlreadyRan: false,
       }),
     ).toBe(true);
@@ -45,7 +48,7 @@ describe("shouldOfferServerDiagramFallback", () => {
     expect(
       shouldOfferServerDiagramFallback({
         userPrompt: "diagram please",
-        excalidrawPersistedForRun: true,
+        agentDiagramPersistedForRun: true,
         fallbackAlreadyRan: false,
       }),
     ).toBe(false);
@@ -55,7 +58,7 @@ describe("shouldOfferServerDiagramFallback", () => {
     expect(
       shouldOfferServerDiagramFallback({
         userPrompt: "diagram please",
-        excalidrawPersistedForRun: false,
+        agentDiagramPersistedForRun: false,
         fallbackAlreadyRan: true,
       }),
     ).toBe(false);
@@ -65,7 +68,7 @@ describe("shouldOfferServerDiagramFallback", () => {
     expect(
       shouldOfferServerDiagramFallback({
         userPrompt: "what is 2+2",
-        excalidrawPersistedForRun: false,
+        agentDiagramPersistedForRun: false,
         fallbackAlreadyRan: false,
       }),
     ).toBe(false);

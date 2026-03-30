@@ -1,8 +1,12 @@
 import "server-only";
 
-import { diagramArtifactTitleFromPrompt } from "@/lib/nojo/diagramIntent";
+import { deriveDiagramNaming } from "@/lib/nojo/diagramNaming";
 import { createDiagramArtifact } from "./storage";
-import { generateExcalidrawDiagram } from "./generate";
+import {
+  deriveFlowNodeLabels,
+  generateExcalidrawDiagram,
+  shouldUseDiagramTemplateMode,
+} from "./generate";
 import { renderExcalidrawToSvg } from "./render";
 
 /**
@@ -14,15 +18,33 @@ export async function createServerDiagramFallbackArtifact(params: {
   agentId: string;
   userPrompt: string;
 }) {
-  const title = diagramArtifactTitleFromPrompt(params.userPrompt);
-  const diagram = generateExcalidrawDiagram(title, params.userPrompt);
+  const naming = deriveDiagramNaming(params.userPrompt);
+  const mode = shouldUseDiagramTemplateMode(params.userPrompt) ? "template" : "prompt";
+  const nodeLabels = deriveFlowNodeLabels(naming.topicPhrase);
+
+  console.info("[nojo][diagram_fallback]", {
+    displayTitle: naming.displayTitle,
+    filenameStem: naming.filenameStem,
+    mode,
+    nodeLabels,
+    promptLength: params.userPrompt.length,
+  });
+
+  const diagram = generateExcalidrawDiagram({
+    mode,
+    displayTitle: naming.displayTitle,
+    topicPhrase: naming.topicPhrase,
+    userPrompt: params.userPrompt,
+  });
   const excalidrawJsonStr = JSON.stringify(diagram);
   const svgStr = renderExcalidrawToSvg(diagram);
+
   return createDiagramArtifact({
     userId: params.userId,
     workspaceId: params.workspaceId,
     agentId: params.agentId,
-    title,
+    title: naming.displayTitle,
+    filenameStem: naming.filenameStem,
     prompt: params.userPrompt,
     excalidrawJsonStr,
     svgStr,
