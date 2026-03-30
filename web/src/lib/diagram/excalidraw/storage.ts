@@ -37,7 +37,7 @@ export async function createDiagramArtifact(params: CreateDiagramArtifactParams)
     size: sourceResult.file.sizeBytes,
   });
 
-  // 2. Persist Preview (.svg)
+  // 2. Persist Preview (.svg) — requires `.svg` in EXPLICIT_ALLOWED (server-generated).
   const svgResult = await persistAgentArtifact({
     userId,
     projectId: workspaceId,

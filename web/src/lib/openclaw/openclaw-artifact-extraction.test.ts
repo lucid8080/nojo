@@ -48,7 +48,7 @@ describe("extractArtifactsFromUnknownPayload", () => {
     const artifacts = extractArtifactsFromUnknownPayload({
       files: [
         {
-          name: "note.txt",
+          filename: "note.txt",
           mimeType: "text/plain",
           bytes: [104, 105],
         },

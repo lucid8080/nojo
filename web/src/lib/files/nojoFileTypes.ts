@@ -27,10 +27,9 @@ const DENYLIST_EXTENSIONS = new Set([
   "sh",
   "jar",
   "class",
-  // HTML / scriptable formats
+  // HTML / scriptable formats (SVG allowed - see EXPLICIT_ALLOWED.svg)
   "html",
   "htm",
-  "svg",
   "xml",
   "xhtml",
   // Archives (can contain executables)
@@ -63,7 +62,8 @@ const EXPLICIT_ALLOWED: Record<string, NojoAllowedExtensionInfo> = {
   jpeg: { extension: "jpeg", mimeType: "image/jpeg" },
   webp: { extension: "webp", mimeType: "image/webp" },
   gif: { extension: "gif", mimeType: "image/gif" },
-  svg: { extension: "svg", mimeType: "image/svg+xml; charset=utf-8" },
+  // Trusted server-generated diagram previews (Excalidraw); also user/agent durable files.
+  svg: { extension: "svg", mimeType: "image/svg+xml" },
 };
 
 export function normalizeExtension(raw: string | null | undefined): string | null {
@@ -93,19 +93,11 @@ export function assertExtensionUploadAllowed(extension: string | null): string {
 }
 
 /**
- * Agent-created artifacts can include diagram previews (SVG).
- * Keep the original security denylist for user uploads.
+ * Agent-created durable files. Same extension policy as `assertExtensionUploadAllowed`
+ * (including `.svg` for server-generated diagram artifacts).
  */
 export function assertAgentExtensionUploadAllowed(extension: string | null): string {
-  const ext = extension ?? "bin";
-  if (!/^[a-z0-9]{1,10}$/.test(ext)) {
-    throw new Error("Invalid file extension.");
-  }
-  // Allow SVG for internal generated diagram previews.
-  if (DENYLIST_EXTENSIONS.has(ext) && ext !== "svg") {
-    throw new Error(`Extension is not allowed: .${ext}`);
-  }
-  return ext;
+  return assertExtensionUploadAllowed(extension);
 }
 
 export function resolveMimeTypeForExtension(extension: string | null): string {
@@ -143,6 +135,7 @@ export function guessExtensionFromMimeType(mimeType: string | null | undefined):
   if (mt === "image/jpeg") return "jpg";
   if (mt === "image/webp") return "webp";
   if (mt === "image/gif") return "gif";
+  if (mt === "image/svg+xml") return "svg";
   return null;
 }
 

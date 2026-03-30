@@ -286,6 +286,17 @@ function looksLikeBase64(s: string): boolean {
   return true;
 }
 
+/** Avoid `content` / `url` keys — they collide with normal chat/message shapes. */
+function firstDataUrlLikeString(obj: Record<string, unknown>): string | undefined {
+  const direct = firstString(obj, ["dataUrl", "data_url"]);
+  if (direct) return direct;
+  const d = obj.data;
+  if (typeof d === "string" && d.trimStart().toLowerCase().startsWith("data:")) {
+    return d;
+  }
+  return undefined;
+}
+
 function maybeArtifactFromObject(o: unknown): OpenClawAgentArtifactDescriptor | null {
   if (!o || typeof o !== "object") return null;
   const obj = o as Record<string, unknown>;
@@ -315,8 +326,6 @@ function maybeArtifactFromObject(o: unknown): OpenClawAgentArtifactDescriptor | 
       "original_filename",
       "outputFilename",
       "output_filename",
-      "name",
-      "outputName",
     ]) ?? "";
   if (!filename.trim() && tempPath) {
     const base = path.basename(tempPath);
@@ -341,7 +350,7 @@ function maybeArtifactFromObject(o: unknown): OpenClawAgentArtifactDescriptor | 
     bytesBase64 = bytesBase64Raw;
   }
 
-  const dataUrlRaw = firstString(obj, ["dataUrl", "data_url", "data", "content", "url"]);
+  const dataUrlRaw = firstDataUrlLikeString(obj);
   if (dataUrlRaw) {
     const parsed = maybeParseDataUrlToBase64(dataUrlRaw);
     if (parsed) bytesBase64 = parsed;
@@ -352,17 +361,13 @@ function maybeArtifactFromObject(o: unknown): OpenClawAgentArtifactDescriptor | 
     if (buf.byteLength > 0) bytesBase64 = buf.toString("base64");
   }
 
-  // Text content may come from `contentText`/`text`/etc.
+  // Plain text body: explicit artifact keys only (not assistant `text` / `body`).
   const contentText =
     firstString(obj, [
       "contentText",
       "content_text",
       "contentTextValue",
       "content_text_value",
-      "text",
-      "body",
-      "string",
-      "value",
     ]) ?? undefined;
 
   if (!bytesBase64 && !contentText && !tempPath) return null;
@@ -392,7 +397,18 @@ export function extractArtifactsFromUnknownPayload(
     "outputs",
     "outputFiles",
     "documents",
-  ];
+  ] as const;
+
+  const wrapperKeys = ["message", "payload", "result", "data", "response"] as const;
+  const partArrayKeys = ["parts", "content"] as const;
+
+  const pushArtifact = (a: OpenClawAgentArtifactDescriptor) => {
+    const k = `${a.filename}::${a.tempPath ?? ""}::${a.bytesBase64 ? "b64" : ""}::${a.contentText ? "txt" : ""}`;
+    if (!seen.has(k)) {
+      seen.add(k);
+      out.push(a);
+    }
+  };
 
   const visit = (v: unknown, depth: number) => {
     if (depth > 4 || out.length >= 10) return;
@@ -434,27 +450,41 @@ export function extractArtifactsFromUnknownPayload(
     const obj = v as Record<string, unknown>;
     const direct = maybeArtifactFromObject(obj);
     if (direct) {
-      const k = `${direct.filename}::${direct.tempPath ?? ""}::${direct.bytesBase64 ? "b64" : ""}::${direct.contentText ? "txt" : ""}`;
-      if (!seen.has(k)) {
-        seen.add(k);
-        out.push(direct);
-      }
+      pushArtifact(direct);
       return;
     }
 
     for (const k of candidateArrayKeys) {
       const arr = obj[k];
-      if (!arr) continue;
-      if (Array.isArray(arr)) {
-        for (const x of arr) visit(x, depth + 1);
+      if (!Array.isArray(arr)) continue;
+      for (const x of arr) visit(x, depth + 1);
+      if (out.length >= 10) return;
+    }
+
+    for (const k of wrapperKeys) {
+      const inner = obj[k];
+      if (inner != null && typeof inner === "object") {
+        visit(inner, depth + 1);
+        if (out.length >= 10) return;
       }
     }
 
-    // Recurse nested values (including strings) so payloads like
-    // { content: [{ type, text: "```json ...```" }] } can be parsed.
-    for (const [, value] of Object.entries(obj)) {
-      visit(value, depth + 1);
-      if (out.length >= 10) break;
+    // Message parts: scan for embedded ```json``` blocks in string leaves only.
+    for (const k of partArrayKeys) {
+      const arr = obj[k];
+      if (!Array.isArray(arr)) continue;
+      for (const x of arr) visit(x, depth + 1);
+      if (out.length >= 10) return;
+    }
+
+    // OpenAI-style `content` as string or nested object (not a blind Object.entries scan).
+    const c = obj.content;
+    if (c != null && typeof c !== "function") {
+      if (typeof c === "string") {
+        visit(c, depth + 1);
+      } else if (typeof c === "object" && !Array.isArray(c)) {
+        visit(c, depth + 1);
+      }
     }
   };
 
@@ -528,10 +558,7 @@ const DURABLE_FILES_DEBUG_TOP_LEVEL_KEY_HINTS = new Set<string>([
   "filename",
   "fileName",
   "file_name",
-  "name",
   "bytes",
-  "content",
-  "text",
 ]);
 
 /**

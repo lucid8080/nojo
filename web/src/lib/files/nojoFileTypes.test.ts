@@ -28,7 +28,11 @@ describe("nojoFileTypes", () => {
     expect(() => assertExtensionUploadAllowed("exe")).toThrow();
     expect(() => assertExtensionUploadAllowed("js")).toThrow();
     expect(() => assertExtensionUploadAllowed("zip")).toThrow();
-    expect(() => assertExtensionUploadAllowed("svg")).toThrow();
+  });
+
+  it("allows svg for trusted server-generated diagram artifacts", () => {
+    expect(assertExtensionUploadAllowed("svg")).toBe("svg");
+    expect(resolveMimeTypeForExtension("svg")).toBe("image/svg+xml");
   });
 
   it("allows unknown non-denylisted extensions (served as octet-stream)", () => {

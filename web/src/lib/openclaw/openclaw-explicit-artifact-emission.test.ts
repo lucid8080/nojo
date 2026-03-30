@@ -13,6 +13,30 @@ describe("OpenClaw explicit artifact emission contract", () => {
     expect(artifacts).toHaveLength(0);
   });
 
+  it("does not treat assistant name + text as a durable file artifact", () => {
+    expect(
+      extractArtifactsFromUnknownPayload({
+        message: {
+          name: "hi-can-you-make-the-diagram",
+          text: "Sure, I can help sketch a diagram.",
+        },
+      }),
+    ).toHaveLength(0);
+  });
+
+  it("does not extract artifacts from arbitrary nested objects without artifact containers", () => {
+    expect(
+      extractArtifactsFromUnknownPayload({
+        message: {
+          role: "assistant",
+          content: [
+            { type: "text", text: "Here is my reply without any file payload." },
+          ],
+        },
+      }),
+    ).toHaveLength(0);
+  });
+
   it("extracts artifacts from structured attachment-like payloads (tempPath)", () => {
     const artifacts = extractArtifactsFromUnknownPayload({
       attachments: [
@@ -36,7 +60,7 @@ describe("OpenClaw explicit artifact emission contract", () => {
     const artifacts = extractArtifactsFromUnknownPayload({
       files: [
         {
-          name: "draft.md",
+          filename: "draft.md",
           mimeType: "text/markdown",
           contentText: "# Hello",
         },
