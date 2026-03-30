@@ -5,6 +5,7 @@ import path from "node:path";
 
 import { bundledSkillEntriesForSkillIds } from "@/data/marketplaceSkillCatalog";
 import { prisma } from "@/lib/db";
+import { userWantsDiagram } from "@/lib/nojo/diagramIntent";
 import { isUserCreatedWorkspaceAgentId } from "@/lib/workspace/userWorkspaceAgentServer";
 
 import { CANONICAL_NOJO_AGENT_IDS } from "./agentIdentityMap";
@@ -190,22 +191,36 @@ async function buildNojoProductSharedBlocks(rawPrompt: string): Promise<{
         "",
         "1) Canonical persistence signal",
         "- The platform will only treat a file as saved when it is persisted through Nojo Durable Files.",
-        "- You must NOT claim success based on runtime/local filesystem paths (e.g. anything like projects/..., ./..., /workspace/..., or D:/.../agent/runtime/... ).",
+        "- You must NOT claim success based on runtime/local filesystem paths as user-facing URLs.",
         "",
-        "2) Emit structured file artifacts (required)",
-        "- When exporting each file, include a structured artifact descriptor object (not just a path string).",
-        "- Your artifact descriptor MUST include: filename plus ONE of: bytesBase64 OR contentText OR tempPath.",
-        "- Optionally include `mimeType`.",
+        "2) Do NOT put large file bodies in chat",
+        "- Never embed multi-kilobyte payloads in assistant-visible text (no huge `contentText`, no large `bytesBase64`, no markdown code fences containing full documents).",
+        "- Write each export to a file under your agent runtime workspace (e.g. `exports/filename.docx`), then emit a structured descriptor with `filename` + `tempPath` (path relative to that workspace, or absolute if under the workspace root).",
+        "- Only for tiny plain-text snippets (under ~2KB) may you use `contentText` instead of writing to disk.",
         "",
-        "3) Where to put artifacts (required)",
-        "- Include the artifact descriptor under one of these top-level keys in your tool/output payload:",
-        "  - `attachments` (array) OR `files` (array) OR `artifacts` (array) OR `generatedFiles` (array)",
+        "3) Where to put descriptors (required)",
+        "- Put artifact descriptors in your tool/output payload under one of: `attachments`, `files`, `artifacts`, or `generatedFiles` (array of objects).",
         "",
-        "4) User-facing success messaging",
-        "- Do NOT output any filesystem paths as if they were the saved location.",
-        "- You can say something like: “Saved to your Files.” The UI will add the canonical saved filename after Durable Files persistence completes.",
+        "4) User-facing messaging",
+        "- Keep chat to one or two short sentences (e.g. “Saved to your Files.”). The UI confirms filenames after persistence.",
         "",
-        "If you cannot provide structured artifacts, do not claim success for file exports.",
+        "If you cannot write the file and provide `tempPath`, do not claim the export succeeded.",
+      ].join("\n")}`,
+    );
+  }
+
+  const wantsDiagramGenerationContract = userWantsDiagram(rawPrompt);
+
+  if (wantsDiagramGenerationContract) {
+    docBlocks.push(
+      `---\nNOJO_DIAGRAM_GENERATION_CONTRACT\n---\n${[
+        "When the user asks for a diagram, flowchart, visual, or Excalidraw drawing, follow this contract:",
+        "",
+        "1) NEVER paste raw Mermaid, Excalidraw JSON, or SVG source as plain text in chat for the user to read.",
+        "2) Preferred: write `your-name.excalidraw` (Excalidraw JSON) to disk under your agent workspace, then emit a structured descriptor: `{ \"filename\": \"….excalidraw\", \"tempPath\": \"relative/path/….excalidraw\" }` under `attachments` / `files` / `artifacts` / `generatedFiles`.",
+        "3) Do NOT put the full Excalidraw document in `contentText` or in markdown ```json``` blocks in chat — it is too large and harms the experience.",
+        "4) You may add a single short line in chat (e.g. “Diagram saved to your Files.”). The UI renders a preview card when persistence succeeds.",
+        "5) If you only describe the diagram in words and do not emit a file artifact, the platform may still generate a diagram server-side when the user clearly asked for one — but you should still prefer writing the `.excalidraw` file when you can.",
       ].join("\n")}`,
     );
   }

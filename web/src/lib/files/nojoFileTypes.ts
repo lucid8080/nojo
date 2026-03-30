@@ -63,6 +63,7 @@ const EXPLICIT_ALLOWED: Record<string, NojoAllowedExtensionInfo> = {
   jpeg: { extension: "jpeg", mimeType: "image/jpeg" },
   webp: { extension: "webp", mimeType: "image/webp" },
   gif: { extension: "gif", mimeType: "image/gif" },
+  svg: { extension: "svg", mimeType: "image/svg+xml; charset=utf-8" },
 };
 
 export function normalizeExtension(raw: string | null | undefined): string | null {
@@ -86,6 +87,22 @@ export function assertExtensionUploadAllowed(extension: string | null): string {
     throw new Error("Invalid file extension.");
   }
   if (DENYLIST_EXTENSIONS.has(ext)) {
+    throw new Error(`Extension is not allowed: .${ext}`);
+  }
+  return ext;
+}
+
+/**
+ * Agent-created artifacts can include diagram previews (SVG).
+ * Keep the original security denylist for user uploads.
+ */
+export function assertAgentExtensionUploadAllowed(extension: string | null): string {
+  const ext = extension ?? "bin";
+  if (!/^[a-z0-9]{1,10}$/.test(ext)) {
+    throw new Error("Invalid file extension.");
+  }
+  // Allow SVG for internal generated diagram previews.
+  if (DENYLIST_EXTENSIONS.has(ext) && ext !== "svg") {
     throw new Error(`Extension is not allowed: .${ext}`);
   }
   return ext;

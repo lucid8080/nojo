@@ -59,17 +59,35 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const agentIdRaw = typeof body.agentId === "string" ? body.agentId.trim() : "";
-    if (!agentIdRaw) {
+    const agentIdFromClient = typeof body.agentId === "string" ? body.agentId.trim() : "";
+    if (!agentIdFromClient) {
       return NextResponse.json(
         {
           success: false,
-          message: "Missing agentId. Nojo chat requires an explicit project agent id (e.g. nojo-main).",
+          message:
+            "Missing agentId. Nojo chat requires an explicit project agent id (e.g. nojo-main).",
         },
         { status: 400 },
       );
     }
-    const canonical = canonicalizeAgentId(agentIdRaw);
+
+    // Detect optional @Mention override in the prompt.
+    // Example: "@Mira check this out!" or "@Ellis can you build it?"
+    const mentionMatch = prompt.match(/^@([a-zA-Z0-9_-]+)(?:[:,\s]|$)/);
+    let effectiveAgentIdRaw = agentIdFromClient;
+    let mentionOverridden = false;
+
+    if (mentionMatch) {
+      const name = mentionMatch[1];
+      // Use the canonicalization map to see if this name/alias maps to a known Nojo agent.
+      const candidateMeta = canonicalizeAgentId(name);
+      if (candidateMeta.matchedNojoAgent || candidateMeta.matchedLegacyAlias) {
+        effectiveAgentIdRaw = candidateMeta.effectiveAgentId;
+        mentionOverridden = true;
+      }
+    }
+
+    const canonical = canonicalizeAgentId(effectiveAgentIdRaw);
     const agentId = canonical.effectiveAgentId;
     const isFirstUserMessage = body.isFirstUserMessage === true;
     const idempotencyKey =
@@ -91,6 +109,8 @@ export async function POST(req: NextRequest) {
     console.info("[openclaw-qa][send.identity]", {
       requestedAgentId: canonical.requestedAgentId,
       effectiveAgentId: canonical.effectiveAgentId,
+      agentIdFromClient,
+      mentionOverridden,
       matchedNojoAgent: canonical.matchedNojoAgent,
       matchedLegacyAlias: canonical.matchedLegacyAlias,
       legacyAliasUsed: canonical.legacyAliasUsed,
@@ -196,6 +216,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    bridge.setLastUserPromptForArtifacts(prompt);
     await bridge.sendUserMessage(promptToSend, idempotencyKey);
 
     return NextResponse.json({
@@ -212,6 +233,8 @@ export async function POST(req: NextRequest) {
       matchedNojoAgent: canonical.matchedNojoAgent,
       matchedLegacyAlias: canonical.matchedLegacyAlias,
       legacyAliasUsed: canonical.legacyAliasUsed,
+      agentIdFromClient,
+      mentionOverridden,
       identityScaffoldChecked: true,
       identityScaffoldSeeded: scaffold.seeded,
       identityScaffoldSeedFiles: scaffold.seededFiles,

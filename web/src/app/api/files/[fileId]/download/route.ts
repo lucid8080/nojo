@@ -75,9 +75,18 @@ export async function GET(
 
     const stream = fs.createReadStream(absPath);
 
+    const mime = (file.currentRevision.mimeType || "application/octet-stream").toLowerCase();
+    const forceAttachment = req.nextUrl.searchParams.get("attachment") === "1";
+    // Browsers often refuse to render <img src> when Content-Disposition is attachment.
+    const useInline =
+      !forceAttachment &&
+      (mime.startsWith("image/") || mime.includes("svg"));
+
+    const disposition = useInline ? "inline" : "attachment";
+
     const headers = {
       "Content-Type": file.currentRevision.mimeType || "application/octet-stream",
-      "Content-Disposition": `attachment; filename*=UTF-8''${toRfc5987Filename(
+      "Content-Disposition": `${disposition}; filename*=UTF-8''${toRfc5987Filename(
         file.filename,
       )}`,
       "Content-Length": String(file.currentRevision.sizeBytes ?? 0),

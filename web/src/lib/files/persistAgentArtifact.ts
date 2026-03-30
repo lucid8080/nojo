@@ -16,6 +16,7 @@ import {
 } from "@/lib/files/nojoFileStorage";
 import {
   assertExtensionUploadAllowed,
+  assertAgentExtensionUploadAllowed,
   resolveMimeTypeForExtension,
 } from "@/lib/files/nojoFileTypes";
 
@@ -86,7 +87,7 @@ function normalizeChangeSummary(changeSummary?: string | null): string | null {
   return trimmed.length ? trimmed : null;
 }
 
-function resolveSafeTempArtifactAbsPath(opts: {
+export function resolveSafeTempArtifactAbsPath(opts: {
   runtimeWorkspaceAbsPath: string;
   tempPath: string;
 }): string {
@@ -157,7 +158,10 @@ export async function persistAgentArtifact(
 
   // Sanitize display filename + derive extension.
   const { sanitizedFilename, extension } = getDisplayFilename({ originalFilename: filename });
-  const extValidated = assertExtensionUploadAllowed(extension);
+  const extValidated =
+    createdByTypeFinal === "AGENT"
+      ? assertAgentExtensionUploadAllowed(extension)
+      : assertExtensionUploadAllowed(extension);
   const mimeType = resolveMimeTypeForExtension(extValidated);
   const sizeBytes = bytesResolved.byteLength;
 

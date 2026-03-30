@@ -20,6 +20,7 @@ import { AgentIdentityProvider, useAgentIdentity } from "./AgentIdentityContext"
 import { ChatComposer } from "./ChatComposer";
 import { ConversationList } from "./ConversationList";
 import { CreateRoomDialog } from "./CreateRoomDialog";
+import { AddAgentDialog } from "./AddAgentDialog";
 import { JobContextPanel } from "./JobContextPanel";
 import { MessageFeed } from "./MessageFeed";
 import { RecentRunsList, type RecentRun } from "./RecentRunsList";
@@ -96,6 +97,7 @@ function WorkspaceShellInner() {
   const [conversationsFetched, setConversationsFetched] = useState(false);
   const [createRoomOpen, setCreateRoomOpen] = useState(false);
   const [createRoomMode, setCreateRoomMode] = useState<"chat" | "job_room">("chat");
+  const [addAgentOpen, setAddAgentOpen] = useState(false);
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -717,8 +719,33 @@ function WorkspaceShellInner() {
       }));
     };
 
+    const onDiagramArtifactCreated = (ev: MessageEvent) => {
+      let data: any;
+      try {
+        data = JSON.parse(ev.data);
+      } catch {
+        return;
+      }
+      const cid = conversation.id;
+      const msg: WorkspaceMessage = {
+        id: uid(),
+        type: "artifact",
+        createdAt: formatNowTime(),
+        artifactType: data.artifactType,
+        title: data.title,
+        files: data.files,
+        agentId: data.agentId,
+        sequence: nextSequence(),
+      };
+      setOpenClawMessagesByConversationId((prev) => ({
+        ...prev,
+        [cid]: [...(prev[cid] ?? []), msg],
+      }));
+    };
+
     es.addEventListener("openclaw", onOpenClaw as EventListener);
     es.addEventListener("artifact_persisted", onArtifactPersisted as EventListener);
+    es.addEventListener("diagram_artifact_created", onDiagramArtifactCreated as EventListener);
     es.onerror = () => {
       // EventSource auto-reconnects; avoid toast spam
     };
@@ -726,6 +753,7 @@ function WorkspaceShellInner() {
     return () => {
       es.removeEventListener("openclaw", onOpenClaw as EventListener);
       es.removeEventListener("artifact_persisted", onArtifactPersisted as EventListener);
+      es.removeEventListener("diagram_artifact_created", onDiagramArtifactCreated as EventListener);
       es.close();
       if (eventSourceRef.current === es) eventSourceRef.current = null;
     };
@@ -745,6 +773,61 @@ function WorkspaceShellInner() {
       router.replace(`/workspace?conversation=${encodeURIComponent(c.id)}`, { scroll: false });
     },
     [router],
+  );
+
+  const handleAgentsAdded = useCallback((updated: Conversation) => {
+    setApiConversations((prev) => {
+      const idx = prev.findIndex((c) => c.id === updated.id);
+      if (idx >= 0) {
+        return [...prev.slice(0, idx), updated, ...prev.slice(idx + 1)];
+      }
+      return [updated, ...prev]; // For seed override
+    });
+  }, []);
+
+  const handleRemoveAgent = useCallback(
+    async (agentId: string) => {
+      if (!conversation) return;
+      try {
+        const res = await fetch(`/api/workspace/conversations/${conversation.id}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            removeAgentIds: [agentId],
+          }),
+        });
+
+        if (res.status === 404) {
+          // Mock/Seed fallback
+          const updated = {
+            ...conversation,
+            agents: conversation.agents.filter((a) => a.id !== agentId),
+          };
+          if (updated.agents.length === 0) {
+            setToast("A conversation must have at least one agent.");
+            return;
+          }
+          handleAgentsAdded(updated);
+          return;
+        }
+
+        const json = (await res.json()) as {
+          success?: boolean;
+          message?: string;
+          conversation?: Conversation;
+        };
+
+        if (!res.ok || !json.success || !json.conversation) {
+          setToast(json.message ?? "Could not remove agent.");
+          return;
+        }
+
+        handleAgentsAdded(json.conversation);
+      } catch {
+        setToast("Network error.");
+      }
+    },
+    [conversation, handleAgentsAdded],
   );
 
   const select = useCallback(
@@ -1082,7 +1165,11 @@ function WorkspaceShellInner() {
 
         {/* Right: desktop */}
         <div className="hidden min-h-0 overflow-hidden rounded-2xl border border-neutral-200/80 bg-white/50 shadow-sm dark:border-slate-800 dark:bg-slate-900/30 lg:block lg:h-full">
-          <JobContextPanel context={jobContext} />
+          <JobContextPanel
+            context={jobContext}
+            onAddAgentClick={() => setAddAgentOpen(true)}
+            onRemoveAgent={handleRemoveAgent}
+          />
         </div>
       </div>
 
@@ -1161,7 +1248,11 @@ function WorkspaceShellInner() {
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
-              <JobContextPanel context={jobContext} />
+              <JobContextPanel
+                context={jobContext}
+                onAddAgentClick={() => setAddAgentOpen(true)}
+                onRemoveAgent={handleRemoveAgent}
+              />
             </div>
           </div>
         </>
@@ -1172,6 +1263,12 @@ function WorkspaceShellInner() {
         onOpenChange={setCreateRoomOpen}
         onCreated={handleRoomCreated}
         mode={createRoomMode}
+      />
+      <AddAgentDialog
+        open={addAgentOpen}
+        conversation={conversation}
+        onOpenChange={setAddAgentOpen}
+        onAgentsAdded={handleAgentsAdded}
       />
     </div>
   );

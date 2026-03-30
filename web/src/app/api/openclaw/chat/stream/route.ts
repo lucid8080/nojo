@@ -1,8 +1,10 @@
 import { NextRequest } from "next/server";
+import { promises as fsp } from "node:fs";
+
 import { getSessionUserId } from "@/lib/auth-server";
 import { prisma } from "@/lib/db";
 import { getOpenClawRoomBridge, type OpenClawChatBridgeEvent } from "@/lib/openclaw/openclaw-chat-bridge";
-import { persistAgentArtifact } from "@/lib/files/persistAgentArtifact";
+import { persistAgentArtifact, resolveSafeTempArtifactAbsPath } from "@/lib/files/persistAgentArtifact";
 import {
   buildNovaContentQaPayload,
   ensureNojoAgentIdentityScaffold,
@@ -10,12 +12,20 @@ import {
 import { ensureUserWorkspaceAgentIdentityScaffold } from "@/lib/nojo/ensureUserWorkspaceAgentIdentityScaffold";
 import { canonicalizeAgentId } from "@/lib/nojo/agentIdCanonicalization";
 import { isUserCreatedWorkspaceAgentId } from "@/lib/workspace/userWorkspaceAgentServer";
+import { createDiagramArtifact } from "@/lib/diagram/excalidraw/storage";
+import { renderExcalidrawToSvg } from "@/lib/diagram/excalidraw/render";
+import { createServerDiagramFallbackArtifact } from "@/lib/diagram/excalidraw/serverDiagramFallback";
+import { shouldOfferServerDiagramFallback } from "@/lib/nojo/diagramIntent";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function sseLine(event: string, data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+}
+
+function runKeyOf(runId: string | undefined): string {
+  return runId && runId.trim().length > 0 ? runId.trim() : "no_run_id";
 }
 
 export async function GET(req: NextRequest) {
@@ -91,20 +101,20 @@ export async function GET(req: NextRequest) {
 
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
-      const push = (ev: OpenClawChatBridgeEvent) => {
-        try {
-          if (ev.type === "artifacts") {
-            void persistAndEmitArtifacts(ev);
-          } else {
-            controller.enqueue(encoder.encode(sseLine("openclaw", ev)));
-          }
-        } catch {
-          // closed
-        }
+      const runArtifactChain = new Map<string, Promise<void>>();
+      const excalidrawPersistedByRun = new Set<string>();
+      const diagramFallbackDoneByRun = new Set<string>();
+
+      const appendRunWork = (runId: string | undefined, fn: () => Promise<void>): void => {
+        const key = runKeyOf(runId);
+        const prev = runArtifactChain.get(key) ?? Promise.resolve();
+        const next = prev.then(fn).catch((err) => {
+          console.error("[openclaw][stream.runQueue]", key, err);
+        });
+        runArtifactChain.set(key, next);
       };
 
       const resolveProjectIdForArtifact = async (): Promise<string> => {
-        // Prefer conversation-linked project if available.
         const conversationRow = await prisma.workspaceConversation.findFirst({
           where: { id: conversationId, userId },
           select: { projectId: true, title: true, description: true },
@@ -148,15 +158,107 @@ export async function GET(req: NextRequest) {
         return created.id;
       };
 
+      const maybeRunDiagramFallback = async (runId: string | undefined) => {
+        const rk = runKeyOf(runId);
+        const userPrompt = bridge.getLastUserPromptForArtifacts();
+        if (
+          !shouldOfferServerDiagramFallback({
+            userPrompt,
+            excalidrawPersistedForRun: excalidrawPersistedByRun.has(rk),
+            fallbackAlreadyRan: diagramFallbackDoneByRun.has(rk),
+          })
+        ) {
+          return;
+        }
+        diagramFallbackDoneByRun.add(rk);
+        try {
+          const projectIdResolved = await resolveProjectIdForArtifact();
+          const dbArtifact = await createServerDiagramFallbackArtifact({
+            userId,
+            workspaceId: projectIdResolved,
+            agentId,
+            userPrompt,
+          });
+          controller.enqueue(
+            encoder.encode(
+              sseLine("diagram_artifact_created", {
+                artifactType: "diagram.excalidraw",
+                title: dbArtifact.title,
+                files: dbArtifact.files,
+                agentId: dbArtifact.agentId,
+              }),
+            ),
+          );
+        } catch (err) {
+          console.error("[openclaw][diagram_fallback_failed]", err);
+        }
+      };
+
       const persistAndEmitArtifacts = async (
         ev: Extract<OpenClawChatBridgeEvent, { type: "artifacts" }>,
       ) => {
+        const rk = runKeyOf(ev.runId);
         const projectIdResolved = await resolveProjectIdForArtifact();
-
         const runtimeWorkspaceAbsPath = scaffold.runtimeWorkspaceAbsPath ?? "";
 
         for (const artifact of ev.artifacts) {
           try {
+            if (artifact.filename && artifact.filename.endsWith(".excalidraw")) {
+              let contentText: string | null =
+                typeof artifact.contentText === "string" && artifact.contentText.length > 0
+                  ? artifact.contentText
+                  : null;
+              if (!contentText && artifact.bytesBase64) {
+                contentText = Buffer.from(artifact.bytesBase64, "base64").toString("utf8");
+              }
+              if (!contentText && artifact.tempPath && runtimeWorkspaceAbsPath) {
+                try {
+                  const abs = resolveSafeTempArtifactAbsPath({
+                    runtimeWorkspaceAbsPath,
+                    tempPath: artifact.tempPath,
+                  });
+                  contentText = await fsp.readFile(abs, "utf8");
+                } catch (readErr) {
+                  console.error("[openclaw][excalidraw_tempPath_read_failed]", readErr);
+                }
+              }
+              if (contentText) {
+                try {
+                  let diagramObj: unknown;
+                  try {
+                    diagramObj = JSON.parse(contentText);
+                  } catch {
+                    diagramObj = { type: "excalidraw", version: 2, source: "fallback", elements: [] };
+                  }
+                  const svgStr = renderExcalidrawToSvg(diagramObj);
+                  const dbArtifact = await createDiagramArtifact({
+                    userId,
+                    workspaceId: projectIdResolved,
+                    agentId: ev.createdByAgentId ?? agentId,
+                    title: artifact.filename.replace(/\.excalidraw$/i, ""),
+                    prompt: "",
+                    excalidrawJsonStr: contentText,
+                    svgStr,
+                  });
+                  excalidrawPersistedByRun.add(rk);
+                  controller.enqueue(
+                    encoder.encode(
+                      sseLine("diagram_artifact_created", {
+                        artifactType: "diagram.excalidraw",
+                        title: dbArtifact.title,
+                        files: dbArtifact.files,
+                        agentId: dbArtifact.agentId,
+                      }),
+                    ),
+                  );
+                  continue;
+                } catch (err: unknown) {
+                  const msg = err instanceof Error ? err.message : String(err);
+                  console.error("[openclaw][diagram_intercept_failed]", msg);
+                }
+              }
+            }
+
             const result = (() => {
               if (artifact.bytesBase64) {
                 const bytes = Buffer.from(artifact.bytesBase64, "base64");
@@ -200,27 +302,27 @@ export async function GET(req: NextRequest) {
               return null;
             })();
 
-            if (!result) continue;
+            const resolvedResult = await result;
+            if (!resolvedResult) continue;
 
             controller.enqueue(
               encoder.encode(
                 sseLine("artifact_persisted", {
                   runId: ev.runId,
-                  fileId: result.file.id,
-                  projectId: result.file.projectId,
-                  filename: result.file.filename,
-                  mimeType: result.file.mimeType,
-                  extension: result.file.extension,
-                  sizeBytes: result.file.sizeBytes,
-                  revisionVersionNumber: result.file.currentRevision?.versionNumber,
-                  updatedAt: result.file.updatedAt,
+                  fileId: resolvedResult.file.id,
+                  projectId: resolvedResult.file.projectId,
+                  filename: resolvedResult.file.filename,
+                  mimeType: resolvedResult.file.mimeType,
+                  extension: resolvedResult.file.extension,
+                  sizeBytes: resolvedResult.file.sizeBytes,
+                  revisionVersionNumber: resolvedResult.file.currentRevision?.versionNumber,
+                  updatedAt: resolvedResult.file.updatedAt,
                 }),
               ),
             );
           } catch (e) {
             const message = e instanceof Error ? e.message : "Failed to persist artifact.";
             console.error("[openclaw][artifact_persisted][persist]", { message, artifact });
-            // Keep the stream going; client will still see chat deltas/final.
             try {
               controller.enqueue(
                 encoder.encode(
@@ -238,13 +340,29 @@ export async function GET(req: NextRequest) {
         }
       };
 
+      const push = (ev: OpenClawChatBridgeEvent) => {
+        try {
+          if (ev.type === "artifacts") {
+            appendRunWork(ev.runId, () => persistAndEmitArtifacts(ev));
+            return;
+          }
+          if (ev.type === "final") {
+            controller.enqueue(encoder.encode(sseLine("openclaw", ev)));
+            appendRunWork(ev.runId, () => maybeRunDiagramFallback(ev.runId));
+            return;
+          }
+          controller.enqueue(encoder.encode(sseLine("openclaw", ev)));
+        } catch {
+          // closed
+        }
+      };
+
       try {
         controller.enqueue(
           encoder.encode(
             sseLine("openclaw", {
               type: "status",
               phase: "identity_scaffold",
-              // TEMP(QA): remove after runtime scaffold verification signoff.
               requestedAgentId: canonical.requestedAgentId,
               effectiveAgentId: canonical.effectiveAgentId,
               matchedNojoAgent: canonical.matchedNojoAgent,

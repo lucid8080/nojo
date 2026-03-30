@@ -5,21 +5,41 @@ import type { JobContext } from "@/data/workspaceChatMock";
 import { workspaceAgents } from "@/data/workspaceChatMock";
 import { WorkspaceAgentAvatar } from "./WorkspaceAgentAvatar";
 
-function AssignedAgentChip({ id }: { id: string }) {
+function AssignedAgentChip({ id, onRemove }: { id: string; onRemove?: (id: string) => void }) {
   const merged = useWorkspaceAgent(id);
   const a = merged ?? workspaceAgents.find((x) => x.id === id);
   if (!a) return null;
   return (
     <span
-      className="inline-flex items-center gap-2 rounded-full border border-neutral-200/80 bg-white py-1 pl-1 pr-3 text-xs font-medium shadow-sm dark:border-slate-600 dark:bg-slate-800"
+      className="inline-flex items-center gap-2 rounded-full border border-neutral-200/80 bg-white py-1 pl-1 pr-1.5 text-xs font-medium shadow-sm dark:border-slate-600 dark:bg-slate-800"
     >
       <WorkspaceAgentAvatar agent={a} size={28} />
-      {a.name}
+      <span className="max-w-[80px] truncate">{a.name}</span>
+      {onRemove ? (
+        <button
+          type="button"
+          onClick={() => onRemove(id)}
+          className="rounded-full p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:text-neutral-500 dark:hover:bg-slate-700 dark:hover:text-slate-300"
+          aria-label={`Remove ${a.name}`}
+        >
+          <svg className="size-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      ) : null}
     </span>
   );
 }
 
-export function JobContextPanel({ context }: { context: JobContext | null }) {
+export function JobContextPanel({
+  context,
+  onAddAgentClick,
+  onRemoveAgent,
+}: {
+  context: JobContext | null;
+  onAddAgentClick?: () => void;
+  onRemoveAgent?: (id: string) => void;
+}) {
   if (!context) {
     return (
       <aside className="flex h-full items-center justify-center border-l border-neutral-200/80 bg-white/40 p-6 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/30 dark:text-neutral-400">
@@ -47,12 +67,32 @@ export function JobContextPanel({ context }: { context: JobContext | null }) {
           </p>
         </div>
         <div>
-          <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-neutral-500">
-            Assigned agents
-          </p>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-neutral-500">
+              Assigned agents
+            </p>
+            {onAddAgentClick ? (
+              <button
+                type="button"
+                onClick={onAddAgentClick}
+                className="inline-flex items-center justify-center rounded-full bg-slate-100 p-1 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+                aria-label="Add Agent"
+              >
+                <svg
+                  className="size-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+              </button>
+            ) : null}
+          </div>
           <div className="flex flex-wrap gap-2">
             {context.agentIds.map((id) => (
-              <AssignedAgentChip key={id} id={id} />
+              <AssignedAgentChip key={id} id={id} onRemove={onRemoveAgent} />
             ))}
           </div>
         </div>

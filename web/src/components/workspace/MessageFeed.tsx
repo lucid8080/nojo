@@ -10,6 +10,7 @@ import { ApprovalCard } from "./ApprovalCard";
 import { DeliverableCard } from "./DeliverableCard";
 import { MessageBubble } from "./MessageBubble";
 import { SystemMessage } from "./SystemMessage";
+import { DiagramArtifactCard } from "./DiagramArtifactCard";
 
 function staticAgent(id: string): WorkspaceAgent | undefined {
   return workspaceAgents.find((a) => a.id === id);
@@ -165,6 +166,33 @@ export function MessageFeed({
                 )}
               </ResolveAgent>
             );
+          case "artifact":
+            if (m.artifactType === "diagram.excalidraw") {
+              if (!m.agentId) {
+                return (
+                  <DiagramArtifactCard
+                    key={m.id}
+                    title={m.title}
+                    createdAt={m.createdAt}
+                    files={m.files}
+                    agent={undefined}
+                  />
+                );
+              }
+              return (
+                <ResolveAgent key={m.id} id={m.agentId}>
+                  {(agent) => (
+                    <DiagramArtifactCard
+                      title={m.title}
+                      createdAt={m.createdAt}
+                      files={m.files}
+                      agent={agent}
+                    />
+                  )}
+                </ResolveAgent>
+              );
+            }
+            return null;
           default:
             return null;
         }

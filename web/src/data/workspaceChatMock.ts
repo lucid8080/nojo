@@ -100,13 +100,23 @@ export type ApprovalMessage = MessageBase & {
   decidedAtLabel?: string;
 };
 
+export type ArtifactMessage = MessageBase & {
+  type: "artifact";
+  artifactType: "diagram.excalidraw" | string;
+  title: string;
+  prompt?: string;
+  files: { kind: string; name: string; url: string; size?: number }[];
+  agentId?: string;
+};
+
 export type WorkspaceMessage =
   | UserMessage
   | AgentMessage
   | SystemMessageData
   | ToolLogMessage
   | DeliverableMessage
-  | ApprovalMessage;
+  | ApprovalMessage
+  | ArtifactMessage;
 
 export type Subtask = {
   id: string;
@@ -264,6 +274,27 @@ export const primaryConversationMessages: WorkspaceMessage[] = [
     fileType: "docx",
     version: "v1.0 — internal draft",
     agentId: "nojo-content",
+  },
+  {
+    id: "m9_1",
+    type: "artifact",
+    artifactType: "diagram.excalidraw",
+    createdAt: "Today 9:36 AM",
+    title: "Enterprise Architecture Diagram",
+    agentId: "nojo-content",
+    prompt: "A system diagram showing standard enterprise deployment",
+    files: [
+      {
+        kind: "preview",
+        name: "architecture.svg",
+        url: "/diagramsdotnet.svg" // Just using an existing public asset to mock the visualization
+      },
+      {
+        kind: "source",
+        name: "architecture.excalidraw",
+        url: "#"
+      }
+    ]
   },
   {
     id: "m10",

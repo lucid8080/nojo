@@ -52,7 +52,7 @@ export type OpenClawChatBridgeEvent =
   | { type: "status"; phase: string; detail?: string }
   | { type: "error"; message: string; code?: string; runId?: string };
 
-const MAX_JSON_PARSE_BYTES = 50_000;
+const MAX_JSON_PARSE_BYTES = 250_000;
 
 function byteLengthUtf8(s: string): number {
   return Buffer.byteLength(s, "utf8");
@@ -77,6 +77,79 @@ function maybeParseSmallJsonString(raw: string): unknown | null {
   }
 }
 
+function extractJsonBlocksFromText(text: string): { parsed: unknown; raw: string }[] {
+  const blocks: { parsed: unknown; raw: string }[] = [];
+  // Match ```json ... ``` or just ``` ... ```
+  const regex = /```(?:json)?\s*([\s\S]*?)```/g;
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    const rawContent = match[1].trim();
+    if (byteLengthUtf8(rawContent) <= MAX_JSON_PARSE_BYTES && looksLikeJsonString(rawContent)) {
+      try {
+        const parsed = JSON.parse(rawContent);
+        if (parsed && typeof parsed === "object") {
+          blocks.push({ parsed, raw: match[0] });
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }
+  return blocks;
+}
+
+/**
+ * Strip markdown fences that embed generatedFiles when JSON.parse failed (model-truncated JSON).
+ * Keeps the short intro paragraph; artifacts are shown via diagram card + project files.
+ */
+function stripArtifactMarkdownFences(text: string): string {
+  if (!/generatedFiles|generated_files/i.test(text)) return text;
+  return text
+    .replace(/```(?:json)?\s*[\s\S]*?(?:generatedFiles|generated_files)[\s\S]*?```/gi, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function decodeJsonStringLiteral(s: string): string | null {
+  try {
+    return JSON.parse(`"${s}"`) as string;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Heuristic fallback for markdown/codefenced payloads where `generatedFiles`
+ * exists but strict JSON.parse fails (common with large model-emitted blocks).
+ */
+function extractGeneratedFilesHeuristicFromText(
+  text: string,
+): OpenClawAgentArtifactDescriptor[] {
+  if (!/generatedFiles|generated_files/i.test(text)) return [];
+  const out: OpenClawAgentArtifactDescriptor[] = [];
+  const seen = new Set<string>();
+
+  const fileRegex =
+    /"filename"\s*:\s*"((?:\\.|[^"\\])*)"[\s\S]*?"contentText"\s*:\s*"((?:\\.|[^"\\])*)"[\s\S]*?(?:"mimeType"\s*:\s*"((?:\\.|[^"\\])*)")?/g;
+  let m: RegExpExecArray | null = null;
+  while ((m = fileRegex.exec(text)) !== null && out.length < 10) {
+    const filenameDecoded = decodeJsonStringLiteral(m[1]);
+    const contentDecoded = decodeJsonStringLiteral(m[2]);
+    const mimeDecoded = m[3] ? decodeJsonStringLiteral(m[3]) : null;
+    if (!filenameDecoded || !contentDecoded) continue;
+    const key = `${filenameDecoded}::txt`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      filename: filenameDecoded,
+      ...(mimeDecoded ? { mimeType: mimeDecoded } : null),
+      contentText: contentDecoded,
+    });
+  }
+
+  return out;
+}
+
 function objectHasArtifactContainerHints(o: Record<string, unknown>): boolean {
   return Boolean(
     o.attachments ||
@@ -92,64 +165,6 @@ function objectHasArtifactContainerHints(o: Record<string, unknown>): boolean {
   );
 }
 
-function extractAssistantText(message: unknown): string {
-  if (message == null) return "";
-  if (typeof message === "string") {
-    const parsed = maybeParseSmallJsonString(message);
-    if (parsed != null) {
-      const t = extractAssistantText(parsed);
-      if (t.trim()) return t;
-      if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
-        const o = parsed as Record<string, unknown>;
-        if (objectHasArtifactContainerHints(o)) {
-          // Avoid dumping raw JSON into chat when the payload is mostly file metadata/bytes.
-          return "";
-        }
-      }
-      return t;
-    }
-    return message;
-  }
-  if (typeof message === "object" && message !== null) {
-    const o = message as Record<string, unknown>;
-    const direct = o.text ?? o.content ?? o.body ?? o.delta ?? o.thinking;
-    if (typeof direct === "string") return direct;
-    const fromParts = (parts: unknown): string => {
-      if (!Array.isArray(parts)) return "";
-      return parts
-        .map((c) => {
-          if (typeof c === "string") return c;
-          if (c && typeof c === "object") {
-            const p = c as Record<string, unknown>;
-            if (typeof p.text === "string") return p.text;
-            if (p.content != null) return extractAssistantText(p.content);
-          }
-          return "";
-        })
-        .join("");
-    };
-    if (Array.isArray(o.content)) {
-      return o.content
-        .map((c) => {
-          if (typeof c === "string") return c;
-          if (c && typeof c === "object") {
-            const p = c as Record<string, unknown>;
-            if (typeof p.text === "string") return p.text;
-            if (typeof p.type === "string" && p.text != null) {
-              return extractAssistantText(p.text);
-            }
-          }
-          return "";
-        })
-        .join("");
-    }
-    if (Array.isArray(o.parts)) {
-      return fromParts(o.parts);
-    }
-  }
-  return "";
-}
-
 function firstString(o: Record<string, unknown> | null | undefined, keys: string[]): string | undefined {
   if (!o) return undefined;
   for (const k of keys) {
@@ -160,6 +175,87 @@ function firstString(o: Record<string, unknown> | null | undefined, keys: string
     }
   }
   return undefined;
+}
+
+/** Strip fenced / embedded artifact JSON from a plain assistant string (no outer JSON envelope). */
+function stripEmbeddedArtifactPayloadsFromPlainText(text: string): string {
+  let t = text;
+  const blocks = extractJsonBlocksFromText(t);
+  for (const block of blocks) {
+    if (typeof block.parsed === "object" && block.parsed !== null && !Array.isArray(block.parsed)) {
+      if (objectHasArtifactContainerHints(block.parsed as Record<string, unknown>)) {
+        t = t.split(block.raw).join("").trim();
+      }
+    }
+  }
+  return stripArtifactMarkdownFences(t);
+}
+
+function extractAssistantText(
+  message: unknown,
+  options?: { joinFragment?: boolean },
+): string {
+  if (message == null) return "";
+  if (typeof message === "string") {
+    const text = message;
+
+    // 1. Whole-message JSON that includes artifacts: show human summary fields only.
+    const parsed = maybeParseSmallJsonString(text);
+    if (parsed != null && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const rec = parsed as Record<string, unknown>;
+      if (objectHasArtifactContainerHints(rec)) {
+        const summary =
+          firstString(rec, ["text", "body", "message", "summary", "content"]) ?? "";
+        if (summary) {
+          return stripEmbeddedArtifactPayloadsFromPlainText(summary).trim();
+        }
+        return "";
+      }
+    }
+
+    const stripped = stripEmbeddedArtifactPayloadsFromPlainText(text);
+    return options?.joinFragment ? stripped : stripped.trim();
+  }
+  if (typeof message === "object" && message !== null) {
+    const o = message as Record<string, unknown>;
+    const direct = o.text ?? o.content ?? o.body ?? o.delta ?? o.thinking;
+    if (typeof direct === "string") return extractAssistantText(direct);
+    const fromParts = (parts: unknown): string => {
+      if (!Array.isArray(parts)) return "";
+      return parts
+        .map((c) => {
+          if (typeof c === "string") return extractAssistantText(c, { joinFragment: true });
+          if (c && typeof c === "object") {
+            const p = c as Record<string, unknown>;
+            if (typeof p.text === "string") return extractAssistantText(p.text, { joinFragment: true });
+            if (p.content != null) return extractAssistantText(p.content, { joinFragment: true });
+          }
+          return "";
+        })
+        .join("")
+        .trim();
+    };
+    if (Array.isArray(o.content)) {
+      return o.content
+        .map((c) => {
+          if (typeof c === "string") return extractAssistantText(c, { joinFragment: true });
+          if (c && typeof c === "object") {
+            const p = c as Record<string, unknown>;
+            if (typeof p.text === "string") return extractAssistantText(p.text, { joinFragment: true });
+            if (typeof p.type === "string" && p.text != null) {
+              return extractAssistantText(p.text, { joinFragment: true });
+            }
+          }
+          return "";
+        })
+        .join("")
+        .trim();
+    }
+    if (Array.isArray(o.parts)) {
+      return fromParts(o.parts);
+    }
+  }
+  return "";
 }
 
 function maybeParseDataUrlToBase64(dataUrl: string): string | null {
@@ -306,6 +402,24 @@ export function extractArtifactsFromUnknownPayload(
       const parsed = maybeParseSmallJsonString(v);
       if (parsed != null) {
         visit(parsed, depth + 1);
+      } else {
+        // fallback: scan for embedded JSON blocks (e.g. ```json ... ```)
+        const blocks = extractJsonBlocksFromText(v);
+        for (const block of blocks) {
+          visit(block.parsed, depth + 1);
+        }
+        if (out.length < 10) {
+          // Last resort: recover generatedFiles even if JSON was malformed.
+          const heuristics = extractGeneratedFilesHeuristicFromText(v);
+          for (const h of heuristics) {
+            const k = `${h.filename}::${h.tempPath ?? ""}::${h.bytesBase64 ? "b64" : ""}::${h.contentText ? "txt" : ""}`;
+            if (!seen.has(k)) {
+              seen.add(k);
+              out.push(h);
+              if (out.length >= 10) break;
+            }
+          }
+        }
       }
       return;
     }
@@ -336,9 +450,9 @@ export function extractArtifactsFromUnknownPayload(
       }
     }
 
-    // Limited fallback recursion: if there are nested objects, search them.
+    // Recurse nested values (including strings) so payloads like
+    // { content: [{ type, text: "```json ...```" }] } can be parsed.
     for (const [, value] of Object.entries(obj)) {
-      if (typeof value !== "object" || value == null) continue;
       visit(value, depth + 1);
       if (out.length >= 10) break;
     }
@@ -667,6 +781,8 @@ export class OpenClawRoomBridge {
   private subscribeSent = false;
   /** In-flight shared promise so concurrent SSE subscribers coalesce one gateway fetch + one emit. */
   private historyFetchInFlight: Promise<HistoryEntry[]> | null = null;
+  /** Raw user message (not composed prompt) for server-side artifact fallbacks (e.g. diagram). */
+  private lastUserPromptForArtifacts = "";
 
   constructor(opts: { userId: string; conversationId: string; agentId?: string }) {
     this.userId = opts.userId;
@@ -906,6 +1022,19 @@ export class OpenClawRoomBridge {
     }
 
     await this.historyFetchInFlight;
+  }
+
+  /**
+   * Store the user's visible prompt for gating server fallbacks (diagram generation, etc.).
+   * Call from chat send with the request-body `prompt`, not the composed gateway message.
+   */
+  setLastUserPromptForArtifacts(prompt: string): void {
+    const t = typeof prompt === "string" ? prompt.trim() : "";
+    this.lastUserPromptForArtifacts = t.length <= 8000 ? t : t.slice(0, 8000);
+  }
+
+  getLastUserPromptForArtifacts(): string {
+    return this.lastUserPromptForArtifacts;
   }
 
   async sendUserMessage(text: string, idempotencyKey: string): Promise<void> {
